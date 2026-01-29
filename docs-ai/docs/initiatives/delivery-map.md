@@ -17,7 +17,7 @@ Work item status is tracked here. Higher-level intent/status lives in `docs-ai/d
 - **DONE** ✅ `swop/cli-wrapper/account-sandbox-manager` (create/list/remove sandboxes; permissions)
 - **DONE** ✅ `swop/cli-wrapper/login-logout-orchestration` (`codex login`/`codex logout` orchestration)
 - **DONE** ✅ `swop/cli-wrapper/usage-client` (fetch + parse `/backend-api/wham/usage`; caching/timeouts)
-- ✅ `swop/cli-wrapper/auto-pick-freshness-policy` (decide stale/missing usage handling for auto-pick)
+- **DONE** ✅ `swop/cli-wrapper/auto-pick-freshness-policy` (decide stale/missing usage handling for auto-pick)
 - ✅ `swop/cli-wrapper/auto-pick-policy` (selection rule + blocked handling)
 - ✅ `swop/cli-wrapper/codex-wrapper-exec` (`swop codex ...` runs under chosen sandbox; concurrency-safe)
 - ✅ `swop/cli-wrapper/session-auto-relogin` (detect auth failure, prompt interactive relogin, retry)
