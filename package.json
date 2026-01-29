@@ -1,0 +1,29 @@
+{
+  "name": "ai-swop",
+  "version": "1.0.0",
+  "description": "Planning + delivery docs for **swop**: a quota-aware multi-account wrapper for `codex`.",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Vistyy/ai-swop.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Vistyy/ai-swop/issues"
+  },
+  "homepage": "https://github.com/Vistyy/ai-swop#readme",
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}
