@@ -98,6 +98,39 @@ export function listSandboxes(env: NodeJS.ProcessEnv): SandboxMetaV1[] {
   return results;
 }
 
+function assertSandboxMeta(value: unknown): asserts value is SandboxMetaV1 {
+  if (!value || typeof value !== "object") {
+    throw new Error("Invalid sandbox metadata");
+  }
+  const meta = value as SandboxMetaV1;
+  if (meta.schema_version !== 1) {
+    throw new Error("Unsupported sandbox metadata version");
+  }
+  if (!meta.label || !meta.label_key || !meta.created_at) {
+    throw new Error("Invalid sandbox metadata");
+  }
+}
+
+export function touchSandboxLastUsedAt(
+  label: string,
+  env: NodeJS.ProcessEnv,
+  now: Date,
+): void {
+  const { key, metaPath } = metaPathForLabel(label, env);
+  const meta = readJson<unknown>(metaPath);
+  assertSandboxMeta(meta);
+  if (meta.label_key !== key) {
+    throw new Error("Sandbox metadata label mismatch");
+  }
+
+  const updated: SandboxMetaV1 = {
+    ...meta,
+    last_used_at: now.toISOString(),
+  };
+
+  writeFile0600Atomic(metaPath, JSON.stringify(updated, null, 2));
+}
+
 export function removeSandbox(label: string, env: NodeJS.ProcessEnv): void {
   const { key, root } = metaPathForLabel(label, env);
   const sandboxRoot = path.join(root, key);

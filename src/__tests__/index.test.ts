@@ -13,21 +13,26 @@ vi.mock("../lib/sandbox-manager", () => ({
   createSandbox: vi.fn(),
   listSandboxes: vi.fn(() => []),
   removeSandbox: vi.fn(),
+  touchSandboxLastUsedAt: vi.fn(),
 }));
 
 vi.mock("../lib/usage-client", () => ({
   getUsageForAccount: vi.fn(),
 }));
 
+vi.mock("../lib/codex-wrapper-exec", () => ({
+  runSwopCodexCommand: vi.fn(),
+}));
+
 import { addAccount, logoutAccount } from "../lib/login-logout-orchestration";
 import { getUsageForAccount } from "../lib/usage-client";
-import { main } from "../index";
 
 describe("cli entrypoint", () => {
   let logSpy: ReturnType<typeof vi.spyOn>;
   let errorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    vi.resetModules();
     logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     process.exitCode = undefined;
@@ -44,6 +49,8 @@ describe("cli entrypoint", () => {
       message: "no tty",
     });
 
+    const { main } = await import("../index");
+
     await main(["node", "swop", "add", "work"]);
 
     expect(addAccount).toHaveBeenCalled();
@@ -56,6 +63,8 @@ describe("cli entrypoint", () => {
       ok: true,
       warning: "remote logout failed",
     });
+
+    const { main } = await import("../index");
 
     await main(["node", "swop", "logout", "work"]);
 
@@ -88,6 +97,8 @@ describe("cli entrypoint", () => {
       },
     });
 
+    const { main } = await import("../index");
+
     await main(["node", "swop", "usage", "gmail"]);
 
     expect(getUsageForAccount).toHaveBeenCalled();
@@ -96,5 +107,59 @@ describe("cli entrypoint", () => {
     expect(logSpy).toHaveBeenCalledWith("reset_at: 2026-01-30 23:28:50");
 
     process.env.TZ = originalTz;
+  });
+
+  it("defaults to auto-pick for swop codex when using --", async () => {
+    const { main } = await import("../index");
+    const { runSwopCodexCommand } = await import("../lib/codex-wrapper-exec");
+
+    vi.mocked(runSwopCodexCommand).mockResolvedValue({
+      ok: true,
+      exitCode: 0,
+    });
+
+    await main(["node", "swop", "codex", "--", "--version"]);
+
+    expect(runSwopCodexCommand).toHaveBeenCalledWith(
+      ["--", "--version"],
+      process.env,
+      expect.any(Object),
+    );
+  });
+
+  it("rejects ambiguous codex args without --", async () => {
+    const { main } = await import("../index");
+    const { runSwopCodexCommand } = await import("../lib/codex-wrapper-exec");
+
+    vi.mocked(runSwopCodexCommand).mockResolvedValue({
+      ok: false,
+      message: "Please use -- to pass arguments to codex.",
+      exitCode: 2,
+    });
+
+    await main(["node", "swop", "codex", "--version"]);
+
+    expect(process.exitCode).toBe(2);
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("use --"),
+    );
+  });
+
+  it("accepts empty pass-through for swop codex", async () => {
+    const { main } = await import("../index");
+    const { runSwopCodexCommand } = await import("../lib/codex-wrapper-exec");
+
+    vi.mocked(runSwopCodexCommand).mockResolvedValue({
+      ok: true,
+      exitCode: 0,
+    });
+
+    await main(["node", "swop", "codex"]);
+
+    expect(runSwopCodexCommand).toHaveBeenCalledWith(
+      [],
+      process.env,
+      expect.any(Object),
+    );
   });
 });

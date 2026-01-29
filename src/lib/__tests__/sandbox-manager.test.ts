@@ -3,7 +3,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { lstatSafe, mkdir0700, readJson, removeTree, writeFile0600Atomic } from "../fs";
 import { populateSharedCodexEntries } from "../codex-sharing";
 import { resolveAccountsRoot } from "../swop-root";
-import { createSandbox, listSandboxes, removeSandbox } from "../sandbox-manager";
+import {
+  createSandbox,
+  listSandboxes,
+  removeSandbox,
+  touchSandboxLastUsedAt,
+} from "../sandbox-manager";
 
 function makeTempDir(): string {
   const base = process.env.VITEST_WORKER_ID
@@ -108,6 +113,32 @@ describe("sandbox manager", () => {
     expect(listed.length).toBe(1);
     expect(listed[0]?.label).toBe("Work");
     expect(listed[0]?.label_key).toBe("work");
+
+    removeTree(tempRoot);
+  });
+
+  it("updates last_used_at without changing other fields", () => {
+    const tempRoot = makeTempDir();
+    process.env.SWOP_ROOT = tempRoot;
+    const realHome = `${tempRoot}/real-home`;
+    const realCodex = `${realHome}/.codex`;
+
+    mkdir0700(realCodex);
+    writeFile0600Atomic(`${realCodex}/config.toml`, "config");
+
+    const meta = createSandbox("Work", process.env, realHome);
+    const now = new Date("2026-01-02T00:00:00Z");
+
+    touchSandboxLastUsedAt("Work", process.env, now);
+
+    const accountsRoot = resolveAccountsRoot(process.env);
+    const updated = readJson<typeof meta>(`${accountsRoot}/work/meta.json`);
+
+    expect(updated.last_used_at).toBe(now.toISOString());
+    expect(updated.label).toBe(meta.label);
+    expect(updated.label_key).toBe(meta.label_key);
+    expect(updated.created_at).toBe(meta.created_at);
+    expect(updated.schema_version).toBe(1);
 
     removeTree(tempRoot);
   });

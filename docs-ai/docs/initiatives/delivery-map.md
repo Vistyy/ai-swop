@@ -4,10 +4,10 @@ Work item status is tracked here. Higher-level intent/status lives in `docs-ai/d
 
 ## Waves (Near-term)
 
-| Wave | Status | Outcome | Brief |
-|---|---:|---|---|
+| Wave         |  Status | Outcome                                                                                | Brief                                          |
+| ------------ | ------: | -------------------------------------------------------------------------------------- | ---------------------------------------------- |
 | `w1-cli-mvp` | Planned | WSL/mac CLI wrapper + multi-account sessions + quota-aware auto-pick + concurrent runs | `docs-ai/docs/initiatives/waves/w1-cli-mvp.md` |
-| `w2-tray-ui` | Future | Windows tray + macOS menu-bar UI for status + switching | `docs-ai/docs/initiatives/waves/w2-tray-ui.md` |
+| `w2-tray-ui` |  Future | Windows tray + macOS menu-bar UI for status + switching                                | `docs-ai/docs/initiatives/waves/w2-tray-ui.md` |
 
 ## Work Queue (Ordered)
 
@@ -19,7 +19,7 @@ Work item status is tracked here. Higher-level intent/status lives in `docs-ai/d
 - **DONE** ✅ `swop/cli-wrapper/usage-client` (fetch + parse `/backend-api/wham/usage`; caching/timeouts)
 - **DONE** ✅ `swop/cli-wrapper/auto-pick-freshness-policy` (decide stale/missing usage handling for auto-pick)
 - **DONE** ✅ `swop/cli-wrapper/auto-pick-policy` (selection rule + blocked handling)
-- ✅ `swop/cli-wrapper/codex-wrapper-exec` (`swop codex ...` runs under chosen sandbox; concurrency-safe)
+- **DONE** ✅ `swop/cli-wrapper/codex-wrapper-exec` (`swop codex ...` runs under chosen sandbox; concurrency-safe)
 - ✅ `swop/cli-wrapper/session-auto-relogin` (detect auth failure, prompt interactive relogin, retry)
 
 ## Legend

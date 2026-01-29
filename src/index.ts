@@ -1,13 +1,20 @@
-import { createSandbox, listSandboxes, removeSandbox } from "./lib/sandbox-manager";
+import {
+  createSandbox,
+  listSandboxes,
+  removeSandbox,
+  touchSandboxLastUsedAt,
+} from "./lib/sandbox-manager";
 import { addAccount, logoutAccount } from "./lib/login-logout-orchestration";
 import { runCodex } from "./lib/codex-runner";
 import { getUsageForAccount } from "./lib/usage-client";
+import { runSwopCodexCommand } from "./lib/codex-wrapper-exec";
 
 function printUsage(): void {
   console.log("Usage:");
   console.log("  swop add <label>");
   console.log("  swop logout <label>");
   console.log("  swop usage <label>");
+  console.log("  swop codex [--account <label> | --auto] -- <codex args...>");
   console.log("  swop sandbox create <label>");
   console.log("  swop sandbox list");
   console.log("  swop sandbox remove <label>");
@@ -85,6 +92,20 @@ export async function main(argv: string[]): Promise<void> {
       if (result.warning) {
         console.error(result.warning.message);
       }
+      return;
+    }
+
+    if (command === "codex") {
+      const result = await runSwopCodexCommand(args.slice(1), process.env, {
+        runCodex,
+        listSandboxes,
+        getUsageForAccount,
+        touchLastUsedAt: touchSandboxLastUsedAt,
+      });
+      if (!result.ok) {
+        console.error(result.message);
+      }
+      process.exitCode = result.exitCode;
       return;
     }
 
