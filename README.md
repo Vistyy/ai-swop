@@ -18,4 +18,25 @@ Planning + delivery docs for **swop**: a quota-aware multi-account wrapper for `
 
 ## Status
 
-This is a freshly bootstrapped repo. No product code has been implemented yet.
+The CLI wrapper is now runnable locally.
+
+## Current working solution
+
+Build and install a real `swop` command:
+
+```bash
+npm run build
+npm link
+```
+
+Run it:
+
+```bash
+swop
+swop add <label>
+swop logout <label>
+```
+
+Notes:
+- `swop add <label>` creates a sandbox and runs `codex login` inside it (TTY required).
+- `swop logout <label>` best-effort runs `codex logout` then always deletes the local sandbox.
