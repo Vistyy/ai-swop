@@ -2,7 +2,7 @@
 
 ## Status
 
-planned
+done
 
 **Type:** autonomous
 
@@ -80,15 +80,15 @@ This enables `swop status` to display “last updated” information, and enable
 
 ## Acceptance Criteria
 
-- [ ] For each account, `swop status` can display the required fields **or** an actionable error state.
-- [ ] The response fields parsed and surfaced match the v1 list in Scope (no extra required fields).
-- [ ] A live fetch uses per-account sandbox auth material (no cross-account leakage).
-- [ ] Cache behavior matches “stale-ok with explicit age”:
-  - [ ] If live fetch fails and cache exists, cached data is returned marked as stale with “last updated” metadata.
-  - [ ] If live fetch fails and no cache exists, an error state is returned (no fields).
-  - [ ] If cache is within the 15-minute TTL, it is used as a fast-path (no network call required).
-- [ ] Timeout behavior is explicit and enforced: a live fetch attempt must not exceed **2 seconds** total.
-- [ ] Failures are non-leaky (no token/session printed) and are categorized as feasible (auth vs network/timeout vs 5xx vs parse).
+- [x] For each account, `swop status` can display the required fields **or** an actionable error state.
+- [x] The response fields parsed and surfaced match the v1 list in Scope (no extra required fields).
+- [x] A live fetch uses per-account sandbox auth material (no cross-account leakage).
+- [x] Cache behavior matches “stale-ok with explicit age”:
+  - [x] If live fetch fails and cache exists, cached data is returned marked as stale with “last updated” metadata.
+  - [x] If live fetch fails and no cache exists, an error state is returned (no fields).
+  - [x] If cache is within the 15-minute TTL, it is used as a fast-path (no network call required).
+- [x] Timeout behavior is explicit and enforced: a live fetch attempt must not exceed **2 seconds** total.
+- [x] Failures are non-leaky (no token/session printed) and are categorized as feasible (auth vs network/timeout vs 5xx vs parse).
 
 ## Decisions
 
