@@ -1,0 +1,93 @@
+import { normalizeLabelKey } from "./labels";
+import type { UsageSnapshotV1 } from "./usage-types";
+
+export type AutoPickCandidate = {
+  label: string;
+  usage: UsageSnapshotV1;
+};
+
+export type AutoPickSuccess = {
+  ok: true;
+  selected: { label: string };
+  message: string;
+};
+
+export type AutoPickFailure = {
+  ok: false;
+  kind: "all-blocked";
+  message: string;
+  earliest_reset_at?: string;
+};
+
+export type AutoPickResult = AutoPickSuccess | AutoPickFailure;
+
+export function selectAutoPickAccount(candidates: AutoPickCandidate[]): AutoPickResult {
+  const viable = candidates.filter(
+    (candidate) =>
+      candidate.usage.rate_limit.allowed && !candidate.usage.rate_limit.limit_reached
+  );
+
+  if (viable.length === 0) {
+    let earliestResetAt: string | undefined;
+    let earliestResetMs = Number.POSITIVE_INFINITY;
+
+    for (const candidate of candidates) {
+      const resetAt = candidate.usage.rate_limit.secondary_window.reset_at;
+      const parsed = Date.parse(resetAt);
+      if (!Number.isNaN(parsed) && parsed < earliestResetMs) {
+        earliestResetMs = parsed;
+        earliestResetAt = resetAt;
+      }
+    }
+
+    if (earliestResetAt) {
+      return {
+        ok: false,
+        kind: "all-blocked",
+        earliest_reset_at: earliestResetAt,
+        message: `all accounts blocked until ${earliestResetAt}.`,
+      };
+    }
+
+    return {
+      ok: false,
+      kind: "all-blocked",
+      message: "all accounts blocked; reset time unknown.",
+    };
+  }
+
+  const sorted = [...viable].sort((left, right) => {
+    const usageDelta =
+      left.usage.rate_limit.secondary_window.used_percent -
+      right.usage.rate_limit.secondary_window.used_percent;
+    if (usageDelta !== 0) {
+      return usageDelta;
+    }
+
+    const leftKey = normalizeLabelKey(left.label);
+    const rightKey = normalizeLabelKey(right.label);
+    if (leftKey < rightKey) {
+      return -1;
+    }
+    if (leftKey > rightKey) {
+      return 1;
+    }
+
+    if (left.label < right.label) {
+      return -1;
+    }
+    if (left.label > right.label) {
+      return 1;
+    }
+
+    return 0;
+  });
+
+  const selected = sorted[0];
+
+  return {
+    ok: true,
+    selected: { label: selected.label },
+    message: `Selected account ${selected.label}.`,
+  };
+}
