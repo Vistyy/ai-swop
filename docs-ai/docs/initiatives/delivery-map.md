@@ -20,7 +20,7 @@ Work item status is tracked here. Higher-level intent/status lives in `docs-ai/d
 - **DONE** ✅ `swop/cli-wrapper/auto-pick-freshness-policy` (decide stale/missing usage handling for auto-pick)
 - **DONE** ✅ `swop/cli-wrapper/auto-pick-policy` (selection rule + blocked handling)
 - **DONE** ✅ `swop/cli-wrapper/codex-wrapper-exec` (`swop codex ...` runs under chosen sandbox; concurrency-safe)
-- ✅ `swop/cli-wrapper/session-auto-relogin` (detect auth failure, prompt interactive relogin, retry)
+- **DONE** ✅ `swop/cli-wrapper/session-auto-relogin` (detect auth failure, prompt interactive relogin, retry)
 
 ## Legend
 

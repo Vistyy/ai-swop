@@ -18,6 +18,7 @@ export async function getUsageForAccount(
     fetcher?: UsageFetcher;
     timeoutMs?: number;
     ttlMs?: number;
+    forceRefresh?: boolean;
   },
 ): Promise<UsageClientResult> {
   const now = options?.now?.() ?? new Date();
@@ -25,7 +26,7 @@ export async function getUsageForAccount(
   const fetcher = options?.fetcher ?? fetchUsageSnapshot;
 
   const cacheResult = readUsageCache(label, env);
-  if (cacheResult.ok && isWithinTtl(cacheResult.fetched_at, now, ttlMs)) {
+  if (!options?.forceRefresh && cacheResult.ok && isWithinTtl(cacheResult.fetched_at, now, ttlMs)) {
     return {
       ok: true,
       usage: cacheResult.usage,

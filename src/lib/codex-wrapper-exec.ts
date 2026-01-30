@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { ensureAuthInteractive } from "./auth-flow";
+
 import { selectAutoPickAccount } from "./auto-pick-policy";
 import type { CodexRunner } from "./codex-runner";
 import { buildSandboxCodexEnv } from "./codex-env";
@@ -19,11 +21,16 @@ export async function runSwopCodexCommand(
   deps: {
     runCodex: CodexRunner;
     listSandboxes: (env: NodeJS.ProcessEnv) => { label: string }[];
-    getUsageForAccount: (label: string, env: NodeJS.ProcessEnv) => Promise<UsageClientResult>;
+    getUsageForAccount: (
+      label: string,
+      env: NodeJS.ProcessEnv,
+      options?: { forceRefresh?: boolean },
+    ) => Promise<UsageClientResult>;
     touchLastUsedAt: (label: string, env: NodeJS.ProcessEnv, now: Date) => void;
     now?: () => Date;
     stdout?: Pick<Console, "log">;
     stderr?: Pick<Console, "error">;
+    stdin?: NodeJS.ReadStream;
   },
 ): Promise<ResultOk | ResultError> {
   const { codexArgs, accountLabel, useAuto, error } = parseArgs(args);
@@ -55,10 +62,40 @@ export async function runSwopCodexCommand(
 
   deps.touchLastUsedAt(label, env, now);
 
-  const run = deps.runCodex(codexArgs, { env: sandboxEnv, stdio: "inherit" });
-  const exitCode = run.code ?? 1;
+  let exitCode = await executeCodex(deps.runCodex, codexArgs, sandboxEnv);
+
+  // If failure, check if it's an auth issue via Usage API Gate
+  // If failure, check if it's an auth issue via Usage API Gate
+  if (exitCode !== 0) {
+    // Force a fresh check to confirm if it's an auth error (401)
+    const usageResult = await deps.getUsageForAccount(label, env, { forceRefresh: true });
+
+    if (!usageResult.ok && usageResult.kind === "auth") {
+      const authRes = await ensureAuthInteractive(label, sandboxEnv, {
+        runCodex: deps.runCodex,
+        stdin: deps.stdin ?? process.stdin,
+        stdout: deps.stdout ?? process.stdout,
+        stderr: deps.stderr ?? process.stderr,
+      });
+
+      if (authRes.ok) {
+        exitCode = await executeCodex(deps.runCodex, codexArgs, sandboxEnv);
+      } else {
+        stderr.error(`Auth recovery failed: ${authRes.message}`);
+      }
+    }
+  }
 
   return { ok: true, exitCode };
+}
+
+async function executeCodex(
+  runCodex: CodexRunner,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+): Promise<number> {
+  const run = runCodex(args, { env, stdio: "inherit" });
+  return run.code ?? 1;
 }
 
 type ParsedArgs = {

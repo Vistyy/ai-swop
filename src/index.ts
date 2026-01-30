@@ -8,12 +8,14 @@ import { addAccount, logoutAccount } from "./lib/login-logout-orchestration";
 import { runCodex } from "./lib/codex-runner";
 import { getUsageForAccount } from "./lib/usage-client";
 import { runSwopCodexCommand } from "./lib/codex-wrapper-exec";
+import { runSwopRelogin } from "./lib/relogin-command";
 
 function printUsage(): void {
   console.log("Usage:");
   console.log("  swop add <label>");
   console.log("  swop logout <label>");
   console.log("  swop usage <label>");
+  console.log("  swop relogin <label>");
   console.log("  swop codex [--account <label> | --auto] -- <codex args...>");
   console.log("  swop sandbox create <label>");
   console.log("  swop sandbox list");
@@ -95,12 +97,27 @@ export async function main(argv: string[]): Promise<void> {
       return;
     }
 
+    if (command === "relogin") {
+      const result = await runSwopRelogin(args.slice(1), process.env, {
+        runCodex,
+        stdin: process.stdin,
+        stdout: process.stdout,
+        stderr: process.stderr,
+      });
+      if (!result.ok) {
+        console.error(result.message);
+      }
+      process.exitCode = !result.ok ? result.exitCode : 0;
+      return;
+    }
+
     if (command === "codex") {
       const result = await runSwopCodexCommand(args.slice(1), process.env, {
         runCodex,
         listSandboxes,
         getUsageForAccount,
         touchLastUsedAt: touchSandboxLastUsedAt,
+        stdin: process.stdin,
       });
       if (!result.ok) {
         console.error(result.message);
