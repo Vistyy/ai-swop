@@ -25,8 +25,12 @@
     "url": "https://github.com/Vistyy/ai-swop/issues"
   },
   "homepage": "https://github.com/Vistyy/ai-swop#readme",
+  "dependencies": {
+    "yargs": "^17.7.2"
+  },
   "devDependencies": {
     "@types/node": "^25.1.0",
+    "@types/yargs": "^17.0.33",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"

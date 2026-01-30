@@ -10,102 +10,120 @@ import { getUsageForAccount } from "./lib/usage-client";
 import { runSwopCodexCommand } from "./lib/codex-wrapper-exec";
 import { runSwopRelogin } from "./lib/relogin-command";
 import { runSwopStatus } from "./lib/status-command";
-
-function printUsage(): void {
-  console.log("Usage:");
-  console.log("  swop add <label>");
-  console.log("  swop logout <label>");
-  console.log("  swop usage <label>");
-  console.log("  swop status [--refresh | -R]");
-  console.log("  swop relogin <label>");
-  console.log("  swop codex [--account <label> | --auto] -- <codex args...>");
-  console.log("  swop sandbox create <label>");
-  console.log("  swop sandbox list");
-  console.log("  swop sandbox remove <label>");
-}
+import yargs from "yargs/yargs";
+import { hideBin } from "yargs/helpers";
+import type { Argv, ArgumentsCamelCase } from "yargs";
 
 export async function main(argv: string[]): Promise<void> {
-  const args = argv.slice(2);
-  const command = args[0];
-
-  if (!command) {
-    printUsage();
-    process.exitCode = 1;
-    return;
-  }
-
-  try {
-    if (command === "add") {
-      const label = args[1];
-      if (!label) {
-        throw new Error("Missing label. Example: swop add work");
+  const rawArgs = hideBin(argv);
+  const cli = yargs(rawArgs)
+    .scriptName("swop")
+    .parserConfiguration({ "populate--": true })
+    .help("help")
+    .alias("help", "h")
+    .version(false)
+    .strictCommands()
+    .exitProcess(false)
+    .fail((message: string | undefined, err: unknown, y: unknown) => {
+      const finalMessage = err instanceof Error ? err.message : message;
+      if (finalMessage) {
+        console.error(finalMessage);
       }
+      if (typeof (y as { showHelp?: unknown }).showHelp === "function") {
+        (y as { showHelp: () => void }).showHelp();
+      }
+      process.exitCode = 1;
+    });
+
+  type AddArgs = { label: string };
+  cli.command(
+    "add <label>",
+    "Add an account",
+    (y: Argv) => y.positional("label", { type: "string", demandOption: true }),
+    async (args: ArgumentsCamelCase<AddArgs>) => {
       const isInteractive = Boolean(process.stdin.isTTY && process.stdout.isTTY);
-      const result = addAccount(label, process.env, { isInteractive, runCodex });
+      const result = addAccount(String(args.label), process.env, { isInteractive, runCodex });
       if (!result.ok) {
         console.error(result.message);
         process.exitCode = 1;
         return;
       }
-      console.log(`Added account: ${label}`);
-      return;
-    }
+      console.log(`Added account: ${String(args.label)}`);
+      process.exitCode = 0;
+    },
+  );
 
-    if (command === "logout") {
-      const label = args[1];
-      if (!label) {
-        throw new Error("Missing label. Example: swop logout work");
-      }
-      const result = logoutAccount(label, process.env, { runCodex });
+  type LogoutArgs = { label: string };
+  cli.command(
+    "logout <label>",
+    "Logout an account",
+    (y: Argv) => y.positional("label", { type: "string", demandOption: true }),
+    async (args: ArgumentsCamelCase<LogoutArgs>) => {
+      const result = logoutAccount(String(args.label), process.env, { runCodex });
       if (!result.ok) {
         console.error(result.message);
         process.exitCode = 1;
         return;
       }
-      console.log(`Logged out account: ${label}`);
+      console.log(`Logged out account: ${String(args.label)}`);
       if (result.warning) {
         console.error(result.warning);
       }
-      return;
-    }
+      process.exitCode = 0;
+    },
+  );
 
-    if (command === "usage") {
-      const label = args[1];
-      if (!label) {
-        throw new Error("Missing label. Example: swop usage work");
-      }
+  type UsageArgs = { label: string };
+  cli.command(
+    "usage <label>",
+    "Show quota usage for an account",
+    (y: Argv) => y.positional("label", { type: "string", demandOption: true }),
+    async (args: ArgumentsCamelCase<UsageArgs>) => {
+      const label = String(args.label);
       const result = await getUsageForAccount(label, process.env);
       if (!result.ok) {
         console.error(result.message);
         process.exitCode = 1;
         return;
       }
+
       console.log(`plan_type: ${result.usage.plan_type}`);
 
       if (!result.usage.rate_limit) {
         console.log("Status: No quota (Free/Expired)");
       } else {
-        console.log(
-          `used_percent: ${result.usage.rate_limit.secondary_window.used_percent}`,
-        );
-        const resetAt = formatLocalTimestamp(
-          result.usage.rate_limit.secondary_window.reset_at,
-        );
+        console.log(`used_percent: ${result.usage.rate_limit.secondary_window.used_percent}`);
+        const resetAt = formatLocalTimestamp(result.usage.rate_limit.secondary_window.reset_at);
         console.log(`reset_at: ${resetAt}`);
       }
+
       if (result.freshness.stale) {
-        console.error(
-          `Warning: stale usage data (${result.freshness.age_seconds}s old)`,
-        );
+        console.error(`Warning: stale usage data (${result.freshness.age_seconds}s old)`);
       }
       if (result.warning) {
         console.error(result.warning.message);
       }
-      return;
-    }
+      process.exitCode = 0;
+    },
+  );
 
-    if (command === "status") {
-      const result = await runSwopStatus(args.slice(1), process.env, {
+  type StatusArgs = { refresh: boolean };
+  cli.command(
+    "status",
+    "Show status for all accounts",
+    (y: Argv) =>
+      y.option("refresh", {
+        type: "boolean",
+        alias: "R",
+        default: false,
+        describe: "Bypass the 15-minute cache and fetch live usage",
+      }),
+    async (args: ArgumentsCamelCase<StatusArgs>) => {
+      const statusArgs: string[] = [];
+      if (args.refresh) {
+        statusArgs.push("--refresh");
+      }
+      const result = await runSwopStatus(statusArgs, process.env, {
         listSandboxes,
         getUsageForAccount,
         stdout: console,
@@ -113,13 +131,20 @@ export async function main(argv: string[]): Promise<void> {
       });
       if (!result.ok) {
         console.error(result.message);
+        process.exitCode = result.exitCode;
+        return;
       }
-      process.exitCode = !result.ok ? result.exitCode : 0;
-      return;
-    }
+      process.exitCode = 0;
+    },
+  );
 
-    if (command === "relogin") {
-      const result = await runSwopRelogin(args.slice(1), process.env, {
+  type ReloginArgs = { label: string };
+  cli.command(
+    "relogin <label>",
+    "Relogin an account",
+    (y: Argv) => y.positional("label", { type: "string", demandOption: true }),
+    async (args: ArgumentsCamelCase<ReloginArgs>) => {
+      const result = await runSwopRelogin([String(args.label)], process.env, {
         runCodex,
         stdin: process.stdin,
         stdout: process.stdout,
@@ -127,13 +152,21 @@ export async function main(argv: string[]): Promise<void> {
       });
       if (!result.ok) {
         console.error(result.message);
+        process.exitCode = result.exitCode;
+        return;
       }
-      process.exitCode = !result.ok ? result.exitCode : 0;
-      return;
-    }
+      process.exitCode = 0;
+    },
+  );
 
-    if (command === "codex") {
-      const result = await runSwopCodexCommand(args.slice(1), process.env, {
+  cli.command(
+    "codex [args..]",
+    "Run codex in a selected sandbox. Use -- to pass codex args.",
+    (y: Argv) => y.parserConfiguration({ "unknown-options-as-args": true }),
+    async () => {
+      const codexIndex = rawArgs.indexOf("codex");
+      const passArgs = codexIndex === -1 ? [] : rawArgs.slice(codexIndex + 1);
+      const result = await runSwopCodexCommand(passArgs, process.env, {
         runCodex,
         listSandboxes,
         getUsageForAccount,
@@ -144,55 +177,69 @@ export async function main(argv: string[]): Promise<void> {
         console.error(result.message);
       }
       process.exitCode = result.exitCode;
-      return;
-    }
+    },
+  );
 
-    if (command !== "sandbox") {
-      printUsage();
-      process.exitCode = 1;
-      return;
-    }
+  type SandboxArgs = { action: "create" | "list" | "remove"; label?: string };
+  cli.command(
+    "sandbox <action> [label]",
+    "Manage sandboxes",
+    (y: Argv) =>
+      y
+        .positional("action", {
+          choices: ["create", "list", "remove"] as const,
+          demandOption: true,
+        })
+        .positional("label", { type: "string" }),
+    async (args: ArgumentsCamelCase<SandboxArgs>) => {
+      const action = args.action;
 
-    const subcommand = args[1];
-
-    if (subcommand === "create") {
-      const label = args[2];
-      if (!label) {
-        throw new Error("Missing label. Example: swop sandbox create work");
-      }
-      const meta = createSandbox(label, process.env);
-      console.log(`Created sandbox: ${meta.label} (${meta.label_key})`);
-      return;
-    }
-
-    if (subcommand === "list") {
-      const sandboxes = listSandboxes(process.env);
-      if (sandboxes.length === 0) {
-        console.log("No sandboxes found.");
+      if (action === "create") {
+        if (!args.label) {
+          console.error("Missing label. Example: swop sandbox create work");
+          process.exitCode = 2;
+          return;
+        }
+        const meta = createSandbox(String(args.label), process.env);
+        console.log(`Created sandbox: ${meta.label} (${meta.label_key})`);
+        process.exitCode = 0;
         return;
       }
-      for (const sandbox of sandboxes) {
-        console.log(`${sandbox.label} (${sandbox.label_key})`);
-      }
-      return;
-    }
 
-    if (subcommand === "remove") {
-      const label = args[2];
-      if (!label) {
-        throw new Error("Missing label. Example: swop sandbox remove work");
+      if (action === "list") {
+        const sandboxes = listSandboxes(process.env);
+        if (sandboxes.length === 0) {
+          console.log("No sandboxes found.");
+          process.exitCode = 0;
+          return;
+        }
+        for (const sandbox of sandboxes) {
+          console.log(`${sandbox.label} (${sandbox.label_key})`);
+        }
+        process.exitCode = 0;
+        return;
       }
-      removeSandbox(label, process.env);
-      console.log(`Removed sandbox: ${label}`);
-      return;
-    }
 
-    printUsage();
-    process.exitCode = 1;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unexpected error";
-    console.error(message);
-    process.exitCode = 1;
+      if (!args.label) {
+        console.error("Missing label. Example: swop sandbox remove work");
+        process.exitCode = 2;
+        return;
+      }
+      removeSandbox(String(args.label), process.env);
+      console.log(`Removed sandbox: ${String(args.label)}`);
+      process.exitCode = 0;
+    },
+  );
+
+  if (rawArgs.length === 0) {
+    cli.showHelp();
+    process.exitCode = 0;
+    return;
+  }
+
+  await cli.parseAsync();
+  if (process.exitCode === undefined) {
+    process.exitCode = 0;
   }
 }
 

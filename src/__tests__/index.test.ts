@@ -30,17 +30,20 @@ import { getUsageForAccount } from "../lib/usage-client";
 describe("cli entrypoint", () => {
   let logSpy: ReturnType<typeof vi.spyOn>;
   let errorSpy: ReturnType<typeof vi.spyOn>;
+  let stdoutSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.resetModules();
     logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     process.exitCode = undefined;
   });
 
   afterEach(() => {
     logSpy.mockRestore();
     errorSpy.mockRestore();
+    stdoutSpy.mockRestore();
   });
 
   it("prints add error message and exits 1 on failure", async () => {
@@ -56,6 +59,25 @@ describe("cli entrypoint", () => {
     expect(addAccount).toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalledWith("no tty");
     expect(process.exitCode).toBe(1);
+  });
+
+  it("prints help for swop -h and exits 0", async () => {
+    const { main } = await import("../index");
+
+    await main(["node", "swop", "-h"]);
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(0);
+  });
+
+  it("prints help for swop status -h and exits 0", async () => {
+    const { main } = await import("../index");
+    const { listSandboxes } = await import("../lib/sandbox-manager");
+
+    await main(["node", "swop", "status", "-h"]);
+
+    expect(vi.mocked(listSandboxes)).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(0);
   });
 
   it("prints warning on logout but still succeeds", async () => {
