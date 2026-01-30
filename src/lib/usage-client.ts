@@ -24,14 +24,26 @@ export async function getUsageForAccount(
   const now = options?.now?.() ?? new Date();
   const ttlMs = options?.ttlMs ?? DEFAULT_TTL_MS;
   const fetcher = options?.fetcher ?? fetchUsageSnapshot;
+  const debugUsage = env.SWOP_DEBUG_USAGE === "1" || (env.SWOP_DEBUG ?? "").split(",").includes("usage");
 
   const cacheResult = readUsageCache(label, env);
-  if (!options?.forceRefresh && cacheResult.ok && isWithinTtl(cacheResult.fetched_at, now, ttlMs)) {
+  const cacheWithinTtl = cacheResult.ok && isWithinTtl(cacheResult.fetched_at, now, ttlMs);
+  if (!options?.forceRefresh && cacheWithinTtl) {
+    if (debugUsage) {
+      const ageSeconds = buildFreshness(cacheResult.fetched_at, now, false).age_seconds;
+      console.error(`swop:usage cache-hit label=${label} age_seconds=${ageSeconds}`);
+    }
     return {
       ok: true,
       usage: cacheResult.usage,
       freshness: buildFreshness(cacheResult.fetched_at, now, false),
     };
+  }
+
+  if (debugUsage) {
+    console.error(
+      `swop:usage fetch label=${label} forceRefresh=${Boolean(options?.forceRefresh)} cache=${cacheResult.ok ? "ok" : cacheResult.reason} withinTtl=${cacheWithinTtl}`,
+    );
   }
 
   const tokenResult = readUsageAccessToken(label, env);
@@ -57,6 +69,9 @@ export async function getUsageForAccount(
   if (fetchResult.ok) {
     const fetchedAt = now.toISOString();
     writeUsageCache(label, env, { fetched_at: fetchedAt, usage: fetchResult.usage });
+    if (debugUsage) {
+      console.error(`swop:usage cache-write label=${label} fetched_at=${fetchedAt}`);
+    }
     return {
       ok: true,
       usage: fetchResult.usage,

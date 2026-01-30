@@ -7,7 +7,7 @@ function run(argv, deps) {
   const spawnSync = deps.spawnSync;
   const existsSync = deps.existsSync ?? fs.existsSync;
   const args = argv.slice(2);
-  const entry = path.join("dist", "index.js");
+  const entry = path.resolve(__dirname, "..", "dist", "index.js");
   if (!existsSync(entry)) {
     console.error("Missing dist build. Run: npm run build");
     return 1;

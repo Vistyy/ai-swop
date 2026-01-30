@@ -3,6 +3,7 @@ import path from "node:path";
 import { lstatSafe, readJson, writeFile0600Atomic } from "./fs";
 import { resolveSandboxPaths } from "./sandbox-paths";
 import type { UsageSnapshotV1 } from "./usage-types";
+import { normalizeUsageSnapshotV1 } from "./usage-normalize";
 
 export type UsageCacheReadResult =
   | { ok: true; usage: UsageSnapshotV1; fetched_at: string }
@@ -26,11 +27,12 @@ export function readUsageCache(label: string, env: NodeJS.ProcessEnv): UsageCach
   }
 
   try {
-    const parsed = readJson<UsageCachePayload>(cachePath);
-    if (!isUsageCachePayload(parsed)) {
+    const parsed = readJson<unknown>(cachePath);
+    const normalized = normalizeUsageCachePayload(parsed);
+    if (!normalized) {
       return { ok: false, reason: "invalid" };
     }
-    return { ok: true, usage: parsed.usage, fetched_at: parsed.fetched_at };
+    return { ok: true, usage: normalized.usage, fetched_at: normalized.fetched_at };
   } catch {
     return { ok: false, reason: "invalid" };
   }
@@ -53,56 +55,23 @@ export function isWithinTtl(fetchedAtIso: string, now: Date, ttlMs: number): boo
   return now.getTime() - fetchedAtMs <= ttlMs;
 }
 
-function isUsageCachePayload(value: unknown): value is UsageCachePayload {
+function normalizeUsageCachePayload(value: unknown): UsageCachePayload | null {
   if (!value || typeof value !== "object") {
-    return false;
+    return null;
   }
 
   const record = value as { fetched_at?: unknown; usage?: unknown };
   if (typeof record.fetched_at !== "string") {
-    return false;
+    return null;
   }
 
-  return isUsageSnapshotV1(record.usage);
-}
-
-function isUsageSnapshotV1(value: unknown): value is UsageSnapshotV1 {
-  if (!value || typeof value !== "object") {
-    return false;
+  const normalizedUsage = normalizeUsageSnapshotV1(record.usage);
+  if (!normalizedUsage) {
+    return null;
   }
 
-  const record = value as UsageSnapshotV1;
-  if (typeof record.plan_type !== "string") {
-    return false;
-  }
-
-  const rateLimit = record.rate_limit;
-  if (!rateLimit || typeof rateLimit !== "object") {
-    return false;
-  }
-
-  if (typeof rateLimit.allowed !== "boolean") {
-    return false;
-  }
-
-  if (typeof rateLimit.limit_reached !== "boolean") {
-    return false;
-  }
-
-  const primary = rateLimit.primary_window;
-  if (!primary || typeof primary !== "object") {
-    return false;
-  }
-
-  const secondary = rateLimit.secondary_window;
-  if (!secondary || typeof secondary !== "object") {
-    return false;
-  }
-
-  return (
-    typeof primary.used_percent === "number" &&
-    typeof primary.reset_at === "string" &&
-    typeof secondary.used_percent === "number" &&
-    typeof secondary.reset_at === "string"
-  );
+  return {
+    fetched_at: record.fetched_at,
+    usage: normalizedUsage,
+  };
 }

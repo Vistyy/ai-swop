@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { spawnSync } from "node:child_process";
+import path from "node:path";
 
 vi.mock("node:child_process", () => ({
   spawnSync: vi.fn(),
@@ -24,6 +25,8 @@ describe("swop bin", () => {
     expect(exitCode).toBe(0);
     const [command, args] = mockedSpawn.mock.calls[0] ?? [];
     expect(command).toBe("/usr/bin/node");
-    expect(args).toEqual(["dist/index.js", "add", "work"]);
+    const binPath = require.resolve("../../bin/swop");
+    const expectedEntry = path.resolve(path.dirname(binPath), "..", "dist", "index.js");
+    expect(args).toEqual([expectedEntry, "add", "work"]);
   });
 });

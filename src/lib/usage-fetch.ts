@@ -1,6 +1,7 @@
 import https from "node:https";
 
 import type { UsageSnapshotV1 } from "./usage-types";
+import { normalizeUsageSnapshotV1 } from "./usage-normalize";
 
 export type UsageFetchResult =
   | { ok: true; usage: UsageSnapshotV1 }
@@ -64,7 +65,7 @@ export async function fetchUsageSnapshot(
     }
 
     const parsed = safeParseJson(response.body);
-    const normalized = normalizeUsageSnapshot(parsed);
+    const normalized = normalizeUsageSnapshotV1(parsed);
     if (!normalized) {
       return { ok: false, kind: "parse", message: "Usage response malformed" };
     }
@@ -124,83 +125,6 @@ function safeParseJson(raw: string): unknown | null {
   } catch {
     return null;
   }
-}
-
-function normalizeUsageSnapshot(value: unknown): UsageSnapshotV1 | null {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const record = value as UsageSnapshotV1;
-  if (typeof record.plan_type !== "string") {
-    return null;
-  }
-
-  const rateLimit = record.rate_limit;
-  if (record.plan_type === "free" && rateLimit === null) {
-    return {
-      plan_type: record.plan_type,
-      rate_limit: null,
-    };
-  }
-
-  if (!rateLimit || typeof rateLimit !== "object") {
-    return null;
-  }
-
-  if (typeof rateLimit.allowed !== "boolean") {
-    return null;
-  }
-
-  if (typeof rateLimit.limit_reached !== "boolean") {
-    return null;
-  }
-
-  const secondary = rateLimit.secondary_window;
-  if (!secondary || typeof secondary !== "object") {
-    return null;
-  }
-
-  const primary = rateLimit.primary_window ?? secondary; // Fallback to secondary if primary is missing in the data
-
-  const primaryUsedPercent = typeof primary.used_percent === "number" ? primary.used_percent : secondary.used_percent;
-  const primaryResetAt = normalizeResetAt(primary.reset_at) ?? normalizeResetAt(secondary.reset_at);
-
-  const secondaryUsedPercent = typeof secondary.used_percent === "number" ? secondary.used_percent : 0;
-  const secondaryResetAt = normalizeResetAt(secondary.reset_at);
-
-  if (!secondaryResetAt || !primaryResetAt) {
-    return null;
-  }
-
-  return {
-    plan_type: record.plan_type,
-    rate_limit: {
-      allowed: rateLimit.allowed,
-      limit_reached: rateLimit.limit_reached,
-      primary_window: {
-        used_percent: primaryUsedPercent,
-        reset_at: primaryResetAt,
-      },
-      secondary_window: {
-        used_percent: secondaryUsedPercent,
-        reset_at: secondaryResetAt,
-      },
-    },
-  };
-}
-
-function normalizeResetAt(value: unknown): string | null {
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (typeof value === "number" && Number.isFinite(value)) {
-    const iso = new Date(value * 1000).toISOString();
-    return Number.isNaN(Date.parse(iso)) ? null : iso;
-  }
-
-  return null;
 }
 
 function isTimeoutError(err: unknown): boolean {
