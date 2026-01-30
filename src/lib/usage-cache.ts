@@ -89,12 +89,19 @@ function isUsageSnapshotV1(value: unknown): value is UsageSnapshotV1 {
     return false;
   }
 
+  const primary = rateLimit.primary_window;
+  if (!primary || typeof primary !== "object") {
+    return false;
+  }
+
   const secondary = rateLimit.secondary_window;
   if (!secondary || typeof secondary !== "object") {
     return false;
   }
 
   return (
+    typeof primary.used_percent === "number" &&
+    typeof primary.reset_at === "string" &&
     typeof secondary.used_percent === "number" &&
     typeof secondary.reset_at === "string"
   );

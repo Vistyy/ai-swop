@@ -1,6 +1,6 @@
 # Work Item: status-command
 
-- **Status**: planned
+- **Status**: done
 - **Parent Feature**: [`cli-wrapper`](../../overview.md)
 
 ## Goal

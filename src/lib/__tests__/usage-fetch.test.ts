@@ -7,6 +7,10 @@ const okBody = JSON.stringify({
   rate_limit: {
     allowed: true,
     limit_reached: false,
+    primary_window: {
+      used_percent: 5,
+      reset_at: "2024-01-01T00:00:00.000Z",
+    },
     secondary_window: {
       used_percent: 12,
       reset_at: "2024-01-01T00:00:00.000Z",
@@ -21,7 +25,7 @@ describe("usage-fetch", () => {
     });
 
     expect(result.ok).toBe(true);
-    if (result.ok) {
+    if (result.ok && result.usage.rate_limit) {
       expect(result.usage.plan_type).toBe("pro");
       expect(result.usage.rate_limit.secondary_window.used_percent).toBe(12);
     }
@@ -66,6 +70,10 @@ describe("usage-fetch", () => {
       rate_limit: {
         allowed: true,
         limit_reached: false,
+        primary_window: {
+          used_percent: 50,
+          reset_at: 1769815730,
+        },
         secondary_window: {
           used_percent: 98,
           reset_at: 1769815730,
@@ -78,7 +86,7 @@ describe("usage-fetch", () => {
     });
 
     expect(result.ok).toBe(true);
-    if (result.ok) {
+    if (result.ok && result.usage.rate_limit) {
       expect(result.usage.rate_limit.secondary_window.reset_at).toBe(
         "2026-01-30T23:28:50.000Z",
       );

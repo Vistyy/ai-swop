@@ -22,7 +22,7 @@ Work item status is tracked here. Higher-level intent/status lives in `docs-ai/d
 - **DONE** ✅ `swop/cli-wrapper/auto-pick-policy` (selection rule + blocked handling)
 - **DONE** ✅ `swop/cli-wrapper/codex-wrapper-exec` (`swop codex ...` runs under chosen sandbox; concurrency-safe)
 - **DONE** ✅ `swop/cli-wrapper/session-auto-relogin` (detect auth failure, prompt interactive relogin, retry)
-- [ ] ✅ `swop/cli-wrapper/status-command` (high-density visual status + usage bars; w1-status)
+- **DONE** ✅ `swop/cli-wrapper/status-command` (high-density visual status + usage bars; w1-status)
 
 ## Legend
 

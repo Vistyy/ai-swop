@@ -161,12 +161,15 @@ function normalizeUsageSnapshot(value: unknown): UsageSnapshotV1 | null {
     return null;
   }
 
-  if (typeof secondary.used_percent !== "number") {
-    return null;
-  }
+  const primary = rateLimit.primary_window ?? secondary; // Fallback to secondary if primary is missing in the data
 
-  const resetAt = normalizeResetAt(secondary.reset_at);
-  if (!resetAt) {
+  const primaryUsedPercent = typeof primary.used_percent === "number" ? primary.used_percent : secondary.used_percent;
+  const primaryResetAt = normalizeResetAt(primary.reset_at) ?? normalizeResetAt(secondary.reset_at);
+
+  const secondaryUsedPercent = typeof secondary.used_percent === "number" ? secondary.used_percent : 0;
+  const secondaryResetAt = normalizeResetAt(secondary.reset_at);
+
+  if (!secondaryResetAt || !primaryResetAt) {
     return null;
   }
 
@@ -175,9 +178,13 @@ function normalizeUsageSnapshot(value: unknown): UsageSnapshotV1 | null {
     rate_limit: {
       allowed: rateLimit.allowed,
       limit_reached: rateLimit.limit_reached,
+      primary_window: {
+        used_percent: primaryUsedPercent,
+        reset_at: primaryResetAt,
+      },
       secondary_window: {
-        used_percent: secondary.used_percent,
-        reset_at: resetAt,
+        used_percent: secondaryUsedPercent,
+        reset_at: secondaryResetAt,
       },
     },
   };

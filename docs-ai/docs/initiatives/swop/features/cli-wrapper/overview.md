@@ -16,4 +16,4 @@ Provide a CLI wrapper that can manage multiple accounts, fetch 7‑day usage for
 | [`swop/cli-wrapper/auto-pick-policy`](work-items/auto-pick-policy/spec.md)                             | Choose best account by lowest 7‑day usage; blocked behavior                   | done   |
 | [`swop/cli-wrapper/codex-wrapper-exec`](work-items/codex-wrapper-exec/spec.md)                         | Run `codex` under chosen sandbox (`swop codex ... -- ...`); concurrent safety | done   |
 | [`swop/cli-wrapper/session-auto-relogin`](work-items/session-auto-relogin/spec.md)                     | Detect auth failure and prompt interactive relogin; retry once                | done   |
-| [`swop/cli-wrapper/status-command`](work-items/status-command/spec.md)                                 | High-density visual status + usage bars; w1-status                            | todo   |
+| [`swop/cli-wrapper/status-command`](work-items/status-command/spec.md)                                 | High-density visual status + usage bars; w1-status                            | done   |

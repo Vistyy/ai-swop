@@ -5,6 +5,10 @@ export type UsageSnapshotV1 = {
   rate_limit: {
     allowed: boolean;
     limit_reached: boolean;
+    primary_window: {
+      used_percent: number;
+      reset_at: string;
+    };
     secondary_window: {
       used_percent: number;
       reset_at: string;
