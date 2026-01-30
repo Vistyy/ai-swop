@@ -24,6 +24,8 @@ Fetch per-account usage information from `GET /backend-api/wham/usage` and expos
   - `plan_type`
   - `rate_limit.allowed`
   - `rate_limit.limit_reached`
+  - `rate_limit.primary_window.used_percent`
+  - `rate_limit.primary_window.reset_at`
   - `rate_limit.secondary_window.used_percent`
   - `rate_limit.secondary_window.reset_at`
 - Define caching + timeout behavior so:
@@ -38,6 +40,12 @@ Fetch per-account usage information from `GET /backend-api/wham/usage` and expos
 - Concurrency semantics for running `codex` (owned by `swop/cli-wrapper/codex-wrapper-exec`).
 
 ## Freshness + caching (v1)
+
+## Data normalization (v1)
+
+- The usage payload is normalized into a canonical shape before caching.
+- If the upstream response omits `primary_window`, the client falls back to `secondary_window` for primary values.
+- Reset timestamps may be ISO strings or epoch-seconds and are normalized to ISO strings.
 
 ### Cache model
 
@@ -77,6 +85,10 @@ This enables `swop status` to display “last updated” information, and enable
 
 - The client enforces a hard deadline per live fetch attempt: **2 seconds** total.
 - No automatic retries in v1 (status/auto-pick should remain predictable and fast).
+
+## Debugging
+
+- Set `SWOP_DEBUG_USAGE=1` (or `SWOP_DEBUG=usage`) to log whether usage is served from cache (`cache-hit`) or fetched live (`fetch`).
 
 ## Acceptance Criteria
 

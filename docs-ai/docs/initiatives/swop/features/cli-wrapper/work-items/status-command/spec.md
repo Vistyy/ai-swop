@@ -13,6 +13,7 @@ Add a `status` command to the `swop` CLI that renders account quota usage visual
 
 - `swop status` command implementation.
 - `swop status --refresh` (and `-R`) flag to bypass the 15-minute usage cache.
+- `swop status -h/--help` to print command help without executing.
 - Rendering engine for "Stacked Cards":
   - Card Header: `[Account Name] (Plan Type)`
   - Primary (5h) row: Bar + `% used` + `resets in Xm/h/s`
@@ -41,6 +42,7 @@ Add a `status` command to the `swop` CLI that renders account quota usage visual
 - [ ] Usage bars empty from right to left as usage increases (Inverse logic).
 - [ ] Reset times are correct for the user's local time and formatted for human readability (e.g., "resets in 4h 12m").
 - [ ] The `--refresh` flag triggers a fresh API call (observable via a brief network latency).
+- [ ] `swop status -h/--help` prints help and exits successfully.
 - [ ] Blocked accounts are visually distinct and labeled "BLOCKED".
 - [ ] Output handles diverse terminal widths without breaking the card layout (wraps or truncates safely).
 

@@ -33,6 +33,10 @@ npm link
 # Add a new account (interactive login)
 swop add my-work-account
 
+# Global / per-command help
+swop --help
+swop status --help
+
 # Check current status of all accounts
 swop status
 
@@ -49,15 +53,17 @@ Use `--` to pass arguments directly to the underlying `codex` CLI.
 
 ```bash
 # Explicitly use an account
-swop codex --account my-work-account -- version
+swop codex --account my-work-account -- --version
 
 # Let swop pick the best account automatically (default)
-swop codex -- version
+swop codex -- --version
 ```
 
 ## 🏗 Project Architecture
 
-- **Sandboxes**: Located in `~/.swop/sandboxes/`. Each account gets its own `$HOME` and environment isolation.
+- **Sandboxes**: Located under `$SWOP_ROOT/accounts/`, else `$XDG_STATE_HOME/swop/accounts/`, else `~/.swop/accounts/`.
+  - Each account lives in `<accountsRoot>/<label_key>/` with `home/` and `meta.json`.
+  - Usage cache lives at `<sandboxRoot>/usage-cache.json`.
 - **CLI Core**: Built with TypeScript in `src/`.
 - **Logic Layers**:
   - `usage-client.ts`: Handles quota fetching and caching.
