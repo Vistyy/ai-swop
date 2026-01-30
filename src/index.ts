@@ -79,13 +79,18 @@ export async function main(argv: string[]): Promise<void> {
         return;
       }
       console.log(`plan_type: ${result.usage.plan_type}`);
-      console.log(
-        `used_percent: ${result.usage.rate_limit.secondary_window.used_percent}`,
-      );
-      const resetAt = formatLocalTimestamp(
-        result.usage.rate_limit.secondary_window.reset_at,
-      );
-      console.log(`reset_at: ${resetAt}`);
+
+      if (!result.usage.rate_limit) {
+        console.log("Status: No quota (Free/Expired)");
+      } else {
+        console.log(
+          `used_percent: ${result.usage.rate_limit.secondary_window.used_percent}`,
+        );
+        const resetAt = formatLocalTimestamp(
+          result.usage.rate_limit.secondary_window.reset_at,
+        );
+        console.log(`reset_at: ${resetAt}`);
+      }
       if (result.freshness.stale) {
         console.error(
           `Warning: stale usage data (${result.freshness.age_seconds}s old)`,

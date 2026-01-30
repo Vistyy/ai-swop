@@ -24,7 +24,9 @@ export type AutoPickResult = AutoPickSuccess | AutoPickFailure;
 export function selectAutoPickAccount(candidates: AutoPickCandidate[]): AutoPickResult {
   const viable = candidates.filter(
     (candidate) =>
-      candidate.usage.rate_limit.allowed && !candidate.usage.rate_limit.limit_reached
+      candidate.usage.rate_limit !== null &&
+      candidate.usage.rate_limit.allowed &&
+      !candidate.usage.rate_limit.limit_reached
   );
 
   if (viable.length === 0) {
@@ -32,6 +34,9 @@ export function selectAutoPickAccount(candidates: AutoPickCandidate[]): AutoPick
     let earliestResetMs = Number.POSITIVE_INFINITY;
 
     for (const candidate of candidates) {
+      if (!candidate.usage.rate_limit) {
+        continue;
+      }
       const resetAt = candidate.usage.rate_limit.secondary_window.reset_at;
       const parsed = Date.parse(resetAt);
       if (!Number.isNaN(parsed) && parsed < earliestResetMs) {
@@ -57,9 +62,13 @@ export function selectAutoPickAccount(candidates: AutoPickCandidate[]): AutoPick
   }
 
   const sorted = [...viable].sort((left, right) => {
+    // Both are guaranteed to have rate_limit not null due to filter above
+    const leftUsage = left.usage.rate_limit!;
+    const rightUsage = right.usage.rate_limit!;
+
     const usageDelta =
-      left.usage.rate_limit.secondary_window.used_percent -
-      right.usage.rate_limit.secondary_window.used_percent;
+      leftUsage.secondary_window.used_percent -
+      rightUsage.secondary_window.used_percent;
     if (usageDelta !== 0) {
       return usageDelta;
     }

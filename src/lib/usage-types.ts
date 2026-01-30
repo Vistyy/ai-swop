@@ -9,7 +9,7 @@ export type UsageSnapshotV1 = {
       used_percent: number;
       reset_at: string;
     };
-  };
+  } | null;
 };
 
 export type UsageFreshness = {

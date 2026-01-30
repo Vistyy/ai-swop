@@ -137,6 +137,13 @@ function normalizeUsageSnapshot(value: unknown): UsageSnapshotV1 | null {
   }
 
   const rateLimit = record.rate_limit;
+  if (record.plan_type === "free" && rateLimit === null) {
+    return {
+      plan_type: record.plan_type,
+      rate_limit: null,
+    };
+  }
+
   if (!rateLimit || typeof rateLimit !== "object") {
     return null;
   }

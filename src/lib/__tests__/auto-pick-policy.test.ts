@@ -187,4 +187,49 @@ describe("selectAutoPickAccount", () => {
       expect(result.earliest_reset_at).toBeUndefined();
     }
   });
+
+  it("excludes free/expired plans (null rate_limit) from selection", () => {
+    const candidates = [
+      withUsage("free-plan", {
+        plan_type: "free",
+        rate_limit: null,
+      }),
+      withUsage("pro-plan", {
+        rate_limit: {
+          allowed: true,
+          limit_reached: false,
+          secondary_window: { used_percent: 0.5, reset_at: "2026-01-02T00:00:00Z" },
+        },
+      }),
+    ];
+
+    const result = selectAutoPickAccount(candidates);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.selected.label).toBe("pro-plan");
+    }
+  });
+
+  it("treats free/expired plans as blocked if no other options exist", () => {
+    const candidates = [
+      withUsage("free-plan-1", {
+        plan_type: "free",
+        rate_limit: null,
+      }),
+      withUsage("free-plan-2", {
+        plan_type: "free",
+        rate_limit: null,
+      }),
+    ];
+
+    const result = selectAutoPickAccount(candidates);
+
+    expect(result.ok).toBe(false);
+    // Since free plans have no reset time, we expect the generic blocked message
+    if (!result.ok) {
+      expect(result.kind).toBe("all-blocked");
+      expect(result.message).toContain("reset time unknown");
+    }
+  });
 });
