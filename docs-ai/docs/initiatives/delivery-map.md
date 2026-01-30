@@ -7,6 +7,7 @@ Work item status is tracked here. Higher-level intent/status lives in `docs-ai/d
 | Wave         |  Status | Outcome                                                                                | Brief                                          |
 | ------------ | ------: | -------------------------------------------------------------------------------------- | ---------------------------------------------- |
 | `w1-cli-mvp` | Planned | WSL/mac CLI wrapper + multi-account sessions + quota-aware auto-pick + concurrent runs | `docs-ai/docs/initiatives/waves/w1-cli-mvp.md` |
+| `w1-status`  | Planned | High-density visual status + usage bars + cache refresh                                | `docs-ai/docs/initiatives/waves/w1-status.md`  |
 | `w2-tray-ui` |  Future | Windows tray + macOS menu-bar UI for status + switching                                | `docs-ai/docs/initiatives/waves/w2-tray-ui.md` |
 
 ## Work Queue (Ordered)
@@ -21,6 +22,7 @@ Work item status is tracked here. Higher-level intent/status lives in `docs-ai/d
 - **DONE** ✅ `swop/cli-wrapper/auto-pick-policy` (selection rule + blocked handling)
 - **DONE** ✅ `swop/cli-wrapper/codex-wrapper-exec` (`swop codex ...` runs under chosen sandbox; concurrency-safe)
 - **DONE** ✅ `swop/cli-wrapper/session-auto-relogin` (detect auth failure, prompt interactive relogin, retry)
+- [ ] ✅ `swop/cli-wrapper/status-command` (high-density visual status + usage bars; w1-status)
 
 ## Legend
 
