@@ -1,42 +1,73 @@
-# ai-swop
+# swop 🔄
 
-Planning + delivery docs for **swop**: a quota-aware multi-account wrapper for `codex`.
+A quota-aware, multi-account wrapper for the `codex` CLI. `swop` manages multiple isolated sessions, tracks usage across accounts, and automatically selects the best account for your tasks to maximize your productivity.
 
-## What we’re building
+## 🚀 Key Features
 
-- **v1 (Wave `w1-cli-mvp`)**: a WSL/mac CLI wrapper that manages multiple `codex login` sessions, fetches 7‑day usage from `GET /backend-api/wham/usage`, auto-picks the best account, and runs `codex` concurrently without credential corruption.
-- **v2 (Wave `w2-tray-ui`)**: Windows tray + macOS menu-bar UI (status + switching), bridging to the same CLI (no duplicated business logic).
+- **Multi-Account Sandboxing**: Isolate multiple `codex` sessions without credential corruption.
+- **Quota Awareness**: Fetches real-time usage data (both 5-hour and 7-day windows) from the API.
+- **Auto-Selection**: Automatically picks the account with the most remaining quota for your commands.
+- **Visual Status**: High-density, color-coded status dashboard (`swop status`) showing remaining capacity at a glance.
+- **Background Caching**: Intelligent 15-minute caching of usage data to keep the CLI snappy.
 
-## Where the docs live
-
-- Roadmap: `docs-ai/docs/roadmap.md`
-- Delivery map (work item status): `docs-ai/docs/initiatives/delivery-map.md`
-- Initiative overview: `docs-ai/docs/initiatives/swop/overview.md`
-- Wave briefs:
-  - `docs-ai/docs/initiatives/waves/w1-cli-mvp.md`
-  - `docs-ai/docs/initiatives/waves/w2-tray-ui.md`
-
-## Status
-
-The CLI wrapper is now runnable locally.
-
-## Current working solution
-
-Build and install a real `swop` command:
+## 🛠 Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/Vistyy/ai-swop.git
+cd ai-swop
+
+# Install dependencies and build
+npm install
 npm run build
+
+# Link the command globally
 npm link
 ```
 
-Run it:
+## 📖 Usage Guide
+
+### Managing Accounts
 
 ```bash
-swop
-swop add <label>
-swop logout <label>
+# Add a new account (interactive login)
+swop add my-work-account
+
+# Check current status of all accounts
+swop status
+
+# Force a fresh usage update
+swop status -R
+
+# Logout and remove an account
+swop logout my-work-account
 ```
 
-Notes:
-- `swop add <label>` creates a sandbox and runs `codex login` inside it (TTY required).
-- `swop logout <label>` best-effort runs `codex logout` then always deletes the local sandbox.
+### Running Commands
+
+Use `--` to pass arguments directly to the underlying `codex` CLI.
+
+```bash
+# Explicitly use an account
+swop codex --account my-work-account -- version
+
+# Let swop pick the best account automatically (default)
+swop codex -- version
+```
+
+## 🏗 Project Architecture
+
+- **Sandboxes**: Located in `~/.swop/sandboxes/`. Each account gets its own `$HOME` and environment isolation.
+- **CLI Core**: Built with TypeScript in `src/`.
+- **Logic Layers**:
+  - `usage-client.ts`: Handles quota fetching and caching.
+  - `auto-pick-policy.ts`: Implements the "Smart Selection" logic.
+  - `status-command.ts`: The visual rendering engine for account health.
+
+## 📚 Internal Documentation
+
+- **Roadmap**: [docs-ai/docs/roadmap.md](docs-ai/docs/roadmap.md)
+- **Delivery Map**: [docs-ai/docs/initiatives/delivery-map.md](docs-ai/docs/initiatives/delivery-map.md)
+- **Feature Overview**: [docs-ai/docs/initiatives/swop/features/cli-wrapper/overview.md](docs-ai/docs/initiatives/swop/features/cli-wrapper/overview.md)
+- **Implementation Plans**: Found within `work-items` directories.
+
