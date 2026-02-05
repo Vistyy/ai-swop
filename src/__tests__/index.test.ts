@@ -80,6 +80,22 @@ describe("cli entrypoint", () => {
     expect(process.exitCode).toBe(0);
   });
 
+  it("prints codex account-selection options in help", async () => {
+    const { main } = await import("../index");
+
+    await main(["node", "swop", "codex", "-h"]);
+
+    const output = [
+      ...stdoutSpy.mock.calls.map((call) => String(call[0])),
+      ...logSpy.mock.calls.map((call) => String(call[0])),
+      ...errorSpy.mock.calls.map((call) => String(call[0])),
+    ].join("");
+
+    expect(output).toContain("--account");
+    expect(output).toContain("--auto");
+    expect(process.exitCode).toBe(0);
+  });
+
   it("prints warning on logout but still succeeds", async () => {
     vi.mocked(logoutAccount).mockReturnValue({
       ok: true,

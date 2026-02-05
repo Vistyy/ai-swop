@@ -162,7 +162,18 @@ export async function main(argv: string[]): Promise<void> {
   cli.command(
     "codex [args..]",
     "Run codex in a selected sandbox. Use -- to pass codex args.",
-    (y: Argv) => y.parserConfiguration({ "unknown-options-as-args": true }),
+    (y: Argv) =>
+      y
+        .parserConfiguration({ "unknown-options-as-args": true })
+        .option("account", {
+          type: "string",
+          describe: "Explicitly select an account label (skips auto-pick)",
+        })
+        .option("auto", {
+          type: "boolean",
+          default: false,
+          describe: "Use auto-pick account selection (default when --account is not set)",
+        }),
     async () => {
       const codexIndex = rawArgs.indexOf("codex");
       const passArgs = codexIndex === -1 ? [] : rawArgs.slice(codexIndex + 1);
