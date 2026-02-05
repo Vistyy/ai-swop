@@ -153,4 +153,35 @@ describe("status-command", () => {
 
     expect(log).toHaveBeenCalledWith(expect.stringContaining("Error: Expired token"));
   });
+
+  it("renders one quota bar for free plans when windows are equivalent", async () => {
+    const listSandboxes = vi.fn().mockReturnValue([{ label: "free" }]);
+    const log = vi.fn();
+
+    const freeUsage: UsageClientResult = {
+      ok: true,
+      usage: {
+        plan_type: "free",
+        rate_limit: {
+          allowed: true,
+          limit_reached: false,
+          primary_window: { used_percent: 1, reset_at: "2026-02-12T19:32:24.000Z" },
+          secondary_window: { used_percent: 1, reset_at: "2026-02-12T19:32:24.000Z" },
+        },
+      },
+      freshness: { fetched_at: "2024-01-01T12:00:00Z", stale: false, age_seconds: 0 },
+    };
+
+    await runSwopStatus([], {}, {
+      listSandboxes,
+      getUsageForAccount: vi.fn().mockResolvedValue(freeUsage),
+      stdout: { log },
+      now: () => mockNow,
+    });
+
+    const output = log.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(output).toContain("Quota (7d)");
+    expect(output).not.toContain("Secondary (7d)");
+    expect(output).not.toContain("Primary (5h)");
+  });
 });

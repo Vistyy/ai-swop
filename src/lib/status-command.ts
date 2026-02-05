@@ -71,10 +71,14 @@ function renderAccountCard(
     stdout.log("  Status: \x1b[31;1mBLOCKED\x1b[0m");
   }
 
-  // Primary (5h)
-  renderWindow("Primary (5h)", rate_limit.primary_window, stdout, now);
-  // Secondary (7d)
-  renderWindow("Secondary (7d)", rate_limit.secondary_window, stdout, now);
+  if (plan_type === "free" && windowsEquivalent(rate_limit.primary_window, rate_limit.secondary_window)) {
+    renderWindow("Quota (7d)", rate_limit.secondary_window, stdout, now);
+  } else {
+    // Primary (5h)
+    renderWindow("Primary (5h)", rate_limit.primary_window, stdout, now);
+    // Secondary (7d)
+    renderWindow("Secondary (7d)", rate_limit.secondary_window, stdout, now);
+  }
 
   if (result.freshness.stale) {
     stdout.log(`  \x1b[33mWarning: data is ${result.freshness.age_seconds}s old\x1b[0m`);
@@ -95,6 +99,13 @@ function renderWindow(
 
   const paddedLabel = label.padEnd(14);
   stdout.log(`  ${paddedLabel}: ${color}${bar}\x1b[0m ${remainingPercent.toFixed(0)}% remains (${resetStr})`);
+}
+
+function windowsEquivalent(
+  left: { used_percent: number; reset_at: string },
+  right: { used_percent: number; reset_at: string },
+): boolean {
+  return left.used_percent === right.used_percent && left.reset_at === right.reset_at;
 }
 
 function renderInverseBar(usedPercent: number): string {
