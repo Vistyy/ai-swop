@@ -73,19 +73,24 @@ export function normalizeUsageSnapshotV1(value: unknown): UsageSnapshotV1 | null
   }
 
   const secondary = normalizeWindow(rateLimit.secondary_window);
-  if (!secondary) {
+  const primary = normalizeWindow(rateLimit.primary_window);
+
+  // Some plans return only one quota window. Use whichever exists as the
+  // canonical source for both internal windows to keep downstream logic stable.
+  if (!secondary && !primary) {
     return null;
   }
 
-  const primary = normalizeWindow(rateLimit.primary_window) ?? secondary;
+  const normalizedPrimary = primary ?? secondary!;
+  const normalizedSecondary = secondary ?? primary!;
 
   return {
     plan_type: planType,
     rate_limit: {
       allowed,
       limit_reached: limitReached,
-      primary_window: primary,
-      secondary_window: secondary,
+      primary_window: normalizedPrimary,
+      secondary_window: normalizedSecondary,
     },
   };
 }

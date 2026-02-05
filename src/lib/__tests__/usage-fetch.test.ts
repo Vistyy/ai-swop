@@ -93,6 +93,37 @@ describe("usage-fetch", () => {
     }
   });
 
+  it("accepts free-plan schema when secondary_window is null", async () => {
+    const body = JSON.stringify({
+      plan_type: "free",
+      rate_limit: {
+        allowed: true,
+        limit_reached: false,
+        primary_window: {
+          used_percent: 1,
+          limit_window_seconds: 604800,
+          reset_after_seconds: 604746,
+          reset_at: 1770924744,
+        },
+        secondary_window: null,
+      },
+    });
+
+    const result = await fetchUsageSnapshot("token", {
+      request: async () => ({ status: 200, body }),
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok && result.usage.rate_limit) {
+      expect(result.usage.plan_type).toBe("free");
+      expect(result.usage.rate_limit.primary_window.used_percent).toBe(1);
+      expect(result.usage.rate_limit.secondary_window.used_percent).toBe(1);
+      expect(result.usage.rate_limit.secondary_window.reset_at).toBe(
+        "2026-02-12T19:32:24.000Z",
+      );
+    }
+  });
+
   it("classifies timeouts", async () => {
     const result = await fetchUsageSnapshot("token", {
       timeoutMs: 5,
