@@ -1,5 +1,5 @@
 {
-  "name": "ai-swop",
+  "name": "@syzom/ai-swop",
   "version": "1.0.0",
   "description": "Planning + delivery docs for **swop**: a quota-aware multi-account wrapper for `codex`.",
   "main": "index.js",
@@ -13,6 +13,12 @@
   "bin": {
     "swop": "bin/swop.js"
   },
+  "files": [
+    "bin",
+    "dist/index.js",
+    "dist/lib/*.js",
+    "README.md"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Vistyy/ai-swop.git"
