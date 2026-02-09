@@ -21,6 +21,8 @@ export type AutoPickFailure = {
 
 export type AutoPickResult = AutoPickSuccess | AutoPickFailure;
 
+const MIN_REMAINING_QUOTA = 0.05;
+
 export function selectAutoPickAccount(candidates: AutoPickCandidate[]): AutoPickResult {
   const viable = candidates.filter(
     (candidate) =>
@@ -61,10 +63,30 @@ export function selectAutoPickAccount(candidates: AutoPickCandidate[]): AutoPick
     };
   }
 
-  const sorted = [...viable].sort((left, right) => {
+  const aboveThreshold = viable.filter((candidate) => {
+    const usedPercent = candidate.usage.rate_limit!.secondary_window.used_percent;
+    const remaining = 1 - usedPercent;
+    return remaining >= MIN_REMAINING_QUOTA;
+  });
+
+  const rankingPool = aboveThreshold.length > 0 ? aboveThreshold : viable;
+
+  const sorted = [...rankingPool].sort((left, right) => {
     // Both are guaranteed to have rate_limit not null due to filter above
     const leftUsage = left.usage.rate_limit!;
     const rightUsage = right.usage.rate_limit!;
+
+    const leftResetMs = parseResetAtMs(leftUsage.secondary_window.reset_at);
+    const rightResetMs = parseResetAtMs(rightUsage.secondary_window.reset_at);
+    if (leftResetMs !== null && rightResetMs !== null && leftResetMs !== rightResetMs) {
+      return leftResetMs - rightResetMs;
+    }
+    if (leftResetMs !== null && rightResetMs === null) {
+      return -1;
+    }
+    if (leftResetMs === null && rightResetMs !== null) {
+      return 1;
+    }
 
     const usageDelta =
       leftUsage.secondary_window.used_percent -
@@ -99,4 +121,9 @@ export function selectAutoPickAccount(candidates: AutoPickCandidate[]): AutoPick
     selected: { label: selected.label },
     message: `Selected account ${selected.label}.`,
   };
+}
+
+function parseResetAtMs(resetAt: string): number | null {
+  const parsed = Date.parse(resetAt);
+  return Number.isNaN(parsed) ? null : parsed;
 }

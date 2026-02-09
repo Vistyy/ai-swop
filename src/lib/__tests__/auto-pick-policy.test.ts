@@ -27,6 +27,84 @@ const withUsage = (
 });
 
 describe("selectAutoPickAccount", () => {
+  it("prioritizes earliest reset_at over lower used_percent", () => {
+    const candidates = [
+      withUsage("earlier-reset", {
+        rate_limit: {
+          allowed: true,
+          limit_reached: false,
+          secondary_window: { used_percent: 0.8, reset_at: "2026-01-02T00:00:00Z" },
+        },
+      }),
+      withUsage("later-reset", {
+        rate_limit: {
+          allowed: true,
+          limit_reached: false,
+          secondary_window: { used_percent: 0.1, reset_at: "2026-01-03T00:00:00Z" },
+        },
+      }),
+    ];
+
+    const result = selectAutoPickAccount(candidates);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.selected.label).toBe("earlier-reset");
+    }
+  });
+
+  it("deprioritizes accounts below remaining threshold when healthier options exist", () => {
+    const candidates = [
+      withUsage("almost-empty", {
+        rate_limit: {
+          allowed: true,
+          limit_reached: false,
+          secondary_window: { used_percent: 0.97, reset_at: "2026-01-01T00:00:00Z" },
+        },
+      }),
+      withUsage("healthy", {
+        rate_limit: {
+          allowed: true,
+          limit_reached: false,
+          secondary_window: { used_percent: 0.5, reset_at: "2026-01-04T00:00:00Z" },
+        },
+      }),
+    ];
+
+    const result = selectAutoPickAccount(candidates);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.selected.label).toBe("healthy");
+    }
+  });
+
+  it("considers below-threshold accounts when all viable accounts are below threshold", () => {
+    const candidates = [
+      withUsage("low-later-reset", {
+        rate_limit: {
+          allowed: true,
+          limit_reached: false,
+          secondary_window: { used_percent: 0.96, reset_at: "2026-01-03T00:00:00Z" },
+        },
+      }),
+      withUsage("low-earlier-reset", {
+        rate_limit: {
+          allowed: true,
+          limit_reached: false,
+          secondary_window: { used_percent: 0.99, reset_at: "2026-01-02T00:00:00Z" },
+        },
+      }),
+    ];
+
+    const result = selectAutoPickAccount(candidates);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.selected.label).toBe("low-earlier-reset");
+    }
+  });
+
   it("picks the lowest used_percent among viable accounts", () => {
     const candidates = [
       withUsage("Work", {
