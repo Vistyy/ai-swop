@@ -142,4 +142,85 @@ describe("usage-client", () => {
 
     removeTree(tempRoot);
   });
+
+  it("throttles repeated live refresh attempts after a recent failed refresh", async () => {
+    const tempRoot = makeTempDir();
+    process.env.SWOP_ROOT = tempRoot;
+
+    const realHome = `${tempRoot}/real-home`;
+    mkdir0700(path.join(realHome, ".codex"));
+    createSandbox("Work", process.env, realHome);
+    const { authPath } = resolveSandboxPaths("Work", process.env);
+    writeFile0600Atomic(authPath, JSON.stringify({ tokens: { access_token: "token" } }, null, 2));
+
+    writeUsageCache("Work", process.env, {
+      fetched_at: "2024-01-01T00:00:00.000Z",
+      usage: sampleUsage,
+    });
+
+    let calls = 0;
+    const fetcher = async (): Promise<UsageFetchResult> => {
+      calls += 1;
+      return { ok: false, kind: "network", message: "offline" };
+    };
+
+    const first = await getUsageForAccount("Work", process.env, {
+      now: () => new Date("2024-01-01T00:20:00.000Z"),
+      fetcher,
+    });
+    expect(calls).toBe(1);
+    expect(first.ok).toBe(true);
+    if (first.ok) {
+      expect(first.freshness.stale).toBe(true);
+    }
+
+    const second = await getUsageForAccount("Work", process.env, {
+      now: () => new Date("2024-01-01T00:21:00.000Z"),
+      fetcher,
+    });
+    expect(calls).toBe(1);
+    expect(second.ok).toBe(true);
+    if (second.ok) {
+      expect(second.freshness.stale).toBe(true);
+    }
+
+    removeTree(tempRoot);
+  });
+
+  it("forceRefresh bypasses failed-refresh throttle", async () => {
+    const tempRoot = makeTempDir();
+    process.env.SWOP_ROOT = tempRoot;
+
+    const realHome = `${tempRoot}/real-home`;
+    mkdir0700(path.join(realHome, ".codex"));
+    createSandbox("Work", process.env, realHome);
+    const { authPath } = resolveSandboxPaths("Work", process.env);
+    writeFile0600Atomic(authPath, JSON.stringify({ tokens: { access_token: "token" } }, null, 2));
+
+    writeUsageCache("Work", process.env, {
+      fetched_at: "2024-01-01T00:00:00.000Z",
+      usage: sampleUsage,
+    });
+
+    let calls = 0;
+    const fetcher = async (): Promise<UsageFetchResult> => {
+      calls += 1;
+      return { ok: false, kind: "network", message: "offline" };
+    };
+
+    await getUsageForAccount("Work", process.env, {
+      now: () => new Date("2024-01-01T00:20:00.000Z"),
+      fetcher,
+    });
+    expect(calls).toBe(1);
+
+    await getUsageForAccount("Work", process.env, {
+      now: () => new Date("2024-01-01T00:21:00.000Z"),
+      fetcher,
+      forceRefresh: true,
+    });
+    expect(calls).toBe(2);
+
+    removeTree(tempRoot);
+  });
 });
