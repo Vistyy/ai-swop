@@ -197,6 +197,65 @@ describe("runSwopCodexCommand", () => {
     );
   });
 
+  it("falls back to Tier 2 when Tier 1 cannot produce a selectable account", async () => {
+    const env = {};
+    const runCodex = vi.fn().mockReturnValue({ code: 0, signal: null });
+    const stdout = { log: vi.fn() };
+    const stderr = { error: vi.fn() };
+
+    const result = await runSwopCodexCommand(["--"], env, {
+      runCodex,
+      listSandboxes: vi.fn().mockReturnValue([
+        {
+          schema_version: 1,
+          label: "gmail",
+          label_key: "gmail",
+          created_at: "2026-01-01T00:00:00Z",
+        },
+        {
+          schema_version: 1,
+          label: "gmail2",
+          label_key: "gmail2",
+          created_at: "2026-01-01T00:00:00Z",
+        },
+      ]),
+      getUsageForAccount: vi
+        .fn()
+        // Tier 2 stale but healthy
+        .mockResolvedValueOnce(
+          staleUsageResult(900, {
+            rate_limit: {
+              allowed: true,
+              limit_reached: false,
+              secondary_window: { used_percent: 37, reset_at: "2026-01-16T00:00:00Z" },
+            },
+          }),
+        )
+        // Tier 1 fresh but below 5% remaining
+        .mockResolvedValueOnce(
+          freshUsageResult({
+            rate_limit: {
+              allowed: true,
+              limit_reached: false,
+              secondary_window: { used_percent: 99, reset_at: "2026-01-14T00:00:00Z" },
+            },
+          }),
+        ),
+      touchLastUsedAt: vi.fn(),
+      now: () => new Date("2026-01-12T00:00:00Z"),
+      stdout,
+      stderr,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.exitCode).toBe(0);
+    }
+    expect(stdout.log).toHaveBeenCalledWith(expect.stringContaining("gmail"));
+    expect(stderr.error).toHaveBeenCalledWith(expect.stringContaining("stale usage data"));
+    expect(runCodex).toHaveBeenCalled();
+  });
+
   it("fails when no eligible accounts exist", async () => {
     const env = {};
 
@@ -271,6 +330,60 @@ describe("runSwopCodexCommand", () => {
       expect(result.message).toContain("blocked");
       expect(result.message).toContain("2026-01-01T12:00:00Z");
     }
+  });
+
+  it("fails auto-pick when all accounts are below the 5% remaining threshold", async () => {
+    const env = {};
+    const runCodex = vi.fn();
+
+    const result = await runSwopCodexCommand(["--"], env, {
+      runCodex,
+      listSandboxes: vi.fn().mockReturnValue([
+        {
+          schema_version: 1,
+          label: "Gmail1",
+          label_key: "gmail1",
+          created_at: "2026-01-01T00:00:00Z",
+        },
+        {
+          schema_version: 1,
+          label: "Gmail2",
+          label_key: "gmail2",
+          created_at: "2026-01-01T00:00:00Z",
+        },
+      ]),
+      getUsageForAccount: vi
+        .fn()
+        .mockResolvedValueOnce(
+          freshUsageResult({
+            rate_limit: {
+              allowed: true,
+              limit_reached: false,
+              secondary_window: { used_percent: 97, reset_at: "2026-01-02T00:00:00Z" },
+            },
+          }),
+        )
+        .mockResolvedValueOnce(
+          freshUsageResult({
+            rate_limit: {
+              allowed: true,
+              limit_reached: false,
+              secondary_window: { used_percent: 96, reset_at: "2026-01-03T00:00:00Z" },
+            },
+          }),
+        ),
+      touchLastUsedAt: vi.fn(),
+      now: () => new Date("2026-01-02T00:00:00Z"),
+      stdout: { log: vi.fn() },
+      stderr: { error: vi.fn() },
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toContain("below");
+      expect(result.message).toContain("5%");
+    }
+    expect(runCodex).not.toHaveBeenCalled();
   });
 
   it("passes through args after --", async () => {

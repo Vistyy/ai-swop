@@ -33,14 +33,14 @@ describe("selectAutoPickAccount", () => {
         rate_limit: {
           allowed: true,
           limit_reached: false,
-          secondary_window: { used_percent: 0.8, reset_at: "2026-01-02T00:00:00Z" },
+          secondary_window: { used_percent: 80, reset_at: "2026-01-02T00:00:00Z" },
         },
       }),
       withUsage("later-reset", {
         rate_limit: {
           allowed: true,
           limit_reached: false,
-          secondary_window: { used_percent: 0.1, reset_at: "2026-01-03T00:00:00Z" },
+          secondary_window: { used_percent: 10, reset_at: "2026-01-03T00:00:00Z" },
         },
       }),
     ];
@@ -59,14 +59,14 @@ describe("selectAutoPickAccount", () => {
         rate_limit: {
           allowed: true,
           limit_reached: false,
-          secondary_window: { used_percent: 0.97, reset_at: "2026-01-01T00:00:00Z" },
+          secondary_window: { used_percent: 96, reset_at: "2026-01-01T00:00:00Z" },
         },
       }),
       withUsage("healthy", {
         rate_limit: {
           allowed: true,
           limit_reached: false,
-          secondary_window: { used_percent: 0.5, reset_at: "2026-01-04T00:00:00Z" },
+          secondary_window: { used_percent: 50, reset_at: "2026-01-04T00:00:00Z" },
         },
       }),
     ];
@@ -79,46 +79,49 @@ describe("selectAutoPickAccount", () => {
     }
   });
 
-  it("considers below-threshold accounts when all viable accounts are below threshold", () => {
+  it("returns all-blocked when all viable accounts are below threshold", () => {
     const candidates = [
       withUsage("low-later-reset", {
         rate_limit: {
           allowed: true,
           limit_reached: false,
-          secondary_window: { used_percent: 0.96, reset_at: "2026-01-03T00:00:00Z" },
+          secondary_window: { used_percent: 96, reset_at: "2026-01-03T00:00:00Z" },
         },
       }),
       withUsage("low-earlier-reset", {
         rate_limit: {
           allowed: true,
           limit_reached: false,
-          secondary_window: { used_percent: 0.99, reset_at: "2026-01-02T00:00:00Z" },
+          secondary_window: { used_percent: 99, reset_at: "2026-01-02T00:00:00Z" },
         },
       }),
     ];
 
     const result = selectAutoPickAccount(candidates);
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.selected.label).toBe("low-earlier-reset");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.kind).toBe("all-blocked");
+      expect(result.message).toContain("below");
+      expect(result.message).toContain("5%");
+      expect(result.earliest_reset_at).toBe("2026-01-02T00:00:00Z");
     }
   });
 
-  it("picks the lowest used_percent among viable accounts", () => {
+  it("picks the lowest used_percent among viable accounts when gap is 30 points or less", () => {
     const candidates = [
       withUsage("Work", {
         rate_limit: {
           allowed: true,
           limit_reached: false,
-          secondary_window: { used_percent: 0.7, reset_at: "2026-01-01T00:00:00Z" },
+          secondary_window: { used_percent: 60, reset_at: "2026-01-01T00:00:00Z" },
         },
       }),
       withUsage("personal", {
         rate_limit: {
           allowed: true,
           limit_reached: false,
-          secondary_window: { used_percent: 0.2, reset_at: "2026-01-01T00:00:00Z" },
+          secondary_window: { used_percent: 40, reset_at: "2026-01-01T00:00:00Z" },
         },
       }),
     ];
@@ -137,14 +140,14 @@ describe("selectAutoPickAccount", () => {
         rate_limit: {
           allowed: false,
           limit_reached: false,
-          secondary_window: { used_percent: 0.1, reset_at: "2026-01-03T00:00:00Z" },
+          secondary_window: { used_percent: 10, reset_at: "2026-01-03T00:00:00Z" },
         },
       }),
       withUsage("viable", {
         rate_limit: {
           allowed: true,
           limit_reached: false,
-          secondary_window: { used_percent: 0.5, reset_at: "2026-01-02T00:00:00Z" },
+          secondary_window: { used_percent: 50, reset_at: "2026-01-02T00:00:00Z" },
         },
       }),
     ];
@@ -163,14 +166,14 @@ describe("selectAutoPickAccount", () => {
         rate_limit: {
           allowed: true,
           limit_reached: false,
-          secondary_window: { used_percent: 0.3, reset_at: "2026-01-01T00:00:00Z" },
+          secondary_window: { used_percent: 30, reset_at: "2026-01-01T00:00:00Z" },
         },
       }),
       withUsage("personal", {
         rate_limit: {
           allowed: true,
           limit_reached: false,
-          secondary_window: { used_percent: 0.3, reset_at: "2026-01-01T00:00:00Z" },
+          secondary_window: { used_percent: 30, reset_at: "2026-01-01T00:00:00Z" },
         },
       }),
     ];
@@ -189,14 +192,14 @@ describe("selectAutoPickAccount", () => {
         rate_limit: {
           allowed: true,
           limit_reached: false,
-          secondary_window: { used_percent: 0.4, reset_at: "2026-01-01T00:00:00Z" },
+          secondary_window: { used_percent: 40, reset_at: "2026-01-01T00:00:00Z" },
         },
       }),
       withUsage("A", {
         rate_limit: {
           allowed: true,
           limit_reached: false,
-          secondary_window: { used_percent: 0.4, reset_at: "2026-01-01T00:00:00Z" },
+          secondary_window: { used_percent: 40, reset_at: "2026-01-01T00:00:00Z" },
         },
       }),
     ];
@@ -215,14 +218,14 @@ describe("selectAutoPickAccount", () => {
         rate_limit: {
           allowed: false,
           limit_reached: true,
-          secondary_window: { used_percent: 0.9, reset_at: "2026-01-02T00:00:00Z" },
+          secondary_window: { used_percent: 90, reset_at: "2026-01-02T00:00:00Z" },
         },
       }),
       withUsage("blocked-two", {
         rate_limit: {
           allowed: true,
           limit_reached: true,
-          secondary_window: { used_percent: 0.8, reset_at: "2026-01-01T00:00:00Z" },
+          secondary_window: { used_percent: 80, reset_at: "2026-01-01T00:00:00Z" },
         },
       }),
     ];
@@ -244,14 +247,14 @@ describe("selectAutoPickAccount", () => {
         rate_limit: {
           allowed: false,
           limit_reached: true,
-          secondary_window: { used_percent: 0.9, reset_at: "unknown" },
+          secondary_window: { used_percent: 90, reset_at: "unknown" },
         },
       }),
       withUsage("blocked-two", {
         rate_limit: {
           allowed: true,
           limit_reached: true,
-          secondary_window: { used_percent: 0.8, reset_at: "" },
+          secondary_window: { used_percent: 80, reset_at: "" },
         },
       }),
     ];
@@ -276,7 +279,7 @@ describe("selectAutoPickAccount", () => {
         rate_limit: {
           allowed: true,
           limit_reached: false,
-          secondary_window: { used_percent: 0.5, reset_at: "2026-01-02T00:00:00Z" },
+          secondary_window: { used_percent: 50, reset_at: "2026-01-02T00:00:00Z" },
         },
       }),
     ];
@@ -308,6 +311,139 @@ describe("selectAutoPickAccount", () => {
     if (!result.ok) {
       expect(result.kind).toBe("all-blocked");
       expect(result.message).toContain("reset time unknown");
+    }
+  });
+
+  it("treats 95% used as exactly 5% remaining and still eligible", () => {
+    const candidates = [
+      withUsage("exact-threshold-earlier", {
+        rate_limit: {
+          allowed: true,
+          limit_reached: false,
+          secondary_window: { used_percent: 95, reset_at: "2026-01-01T00:00:00Z" },
+        },
+      }),
+      withUsage("healthy-later", {
+        rate_limit: {
+          allowed: true,
+          limit_reached: false,
+          secondary_window: { used_percent: 50, reset_at: "2026-01-03T00:00:00Z" },
+        },
+      }),
+    ];
+
+    const result = selectAutoPickAccount(candidates);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.selected.label).toBe("exact-threshold-earlier");
+    }
+  });
+
+  it("prefers higher used_percent when eligible gap is over 30 points", () => {
+    const candidates = [
+      withUsage("high-usage", {
+        rate_limit: {
+          allowed: true,
+          limit_reached: false,
+          secondary_window: { used_percent: 80, reset_at: "2026-01-03T00:00:00Z" },
+        },
+      }),
+      withUsage("low-usage-earlier-reset", {
+        rate_limit: {
+          allowed: true,
+          limit_reached: false,
+          secondary_window: { used_percent: 40, reset_at: "2026-01-01T00:00:00Z" },
+        },
+      }),
+    ];
+
+    const result = selectAutoPickAccount(candidates);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.selected.label).toBe("high-usage");
+    }
+  });
+
+  it("does not apply balancing override when usage gap is 30 points or less", () => {
+    const candidates = [
+      withUsage("higher-usage-later-reset", {
+        rate_limit: {
+          allowed: true,
+          limit_reached: false,
+          secondary_window: { used_percent: 75, reset_at: "2026-01-03T00:00:00Z" },
+        },
+      }),
+      withUsage("lower-usage-earlier-reset", {
+        rate_limit: {
+          allowed: true,
+          limit_reached: false,
+          secondary_window: { used_percent: 45, reset_at: "2026-01-01T00:00:00Z" },
+        },
+      }),
+    ];
+
+    const result = selectAutoPickAccount(candidates);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.selected.label).toBe("lower-usage-earlier-reset");
+    }
+  });
+
+  it("interprets fractional used_percent values as 0..1 scale for threshold checks", () => {
+    const candidates = [
+      withUsage("fraction-high", {
+        rate_limit: {
+          allowed: true,
+          limit_reached: false,
+          secondary_window: { used_percent: 0.97, reset_at: "2026-01-01T00:00:00Z" },
+        },
+      }),
+      withUsage("fraction-low", {
+        rate_limit: {
+          allowed: true,
+          limit_reached: false,
+          secondary_window: { used_percent: 0.4, reset_at: "2026-01-02T00:00:00Z" },
+        },
+      }),
+    ];
+
+    const result = selectAutoPickAccount(candidates);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.selected.label).toBe("fraction-low");
+    }
+  });
+
+  it("blocks selection when all fractional accounts are below 5% remaining", () => {
+    const candidates = [
+      withUsage("fraction-very-high", {
+        rate_limit: {
+          allowed: true,
+          limit_reached: false,
+          secondary_window: { used_percent: 0.97, reset_at: "2026-01-01T00:00:00Z" },
+        },
+      }),
+      withUsage("fraction-also-high", {
+        rate_limit: {
+          allowed: true,
+          limit_reached: false,
+          secondary_window: { used_percent: 0.96, reset_at: "2026-01-02T00:00:00Z" },
+        },
+      }),
+    ];
+
+    const result = selectAutoPickAccount(candidates);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.kind).toBe("all-blocked");
+      expect(result.message).toContain("below");
+      expect(result.message).toContain("5%");
+      expect(result.earliest_reset_at).toBe("2026-01-01T00:00:00Z");
     }
   });
 });

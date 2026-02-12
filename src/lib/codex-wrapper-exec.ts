@@ -222,8 +222,7 @@ async function selectAutoAccount(
     }
   }
 
-  const candidates = tier1.length > 0 ? tier1 : tier2;
-  if (candidates.length === 0) {
+  if (tier1.length === 0 && tier2.length === 0) {
     return {
       ok: false,
       message: "No eligible accounts found. Retry or check account health.",
@@ -231,21 +230,29 @@ async function selectAutoAccount(
     };
   }
 
-  const selection = selectAutoPickAccount(
-    candidates.map((candidate) => ({ label: candidate.label, usage: candidate.usage.usage })),
-  );
+  const mapCandidates = (candidates: { label: string; usage: UsageOk }[]) =>
+    candidates.map((candidate) => ({ label: candidate.label, usage: candidate.usage.usage }));
 
-  if (!selection.ok) {
-    return { ok: false, message: selection.message, exitCode: 1 };
-  }
+  if (tier1.length > 0) {
+    const tier1Selection = selectAutoPickAccount(mapCandidates(tier1));
+    if (tier1Selection.ok) {
+      return { ok: true, label: tier1Selection.selected.label };
+    }
 
-  let warning: string | undefined;
-  if (tier1.length === 0) {
-    const selectedTier2 = tier2.find((candidate) => candidate.label === selection.selected.label);
-    if (selectedTier2) {
-      warning = `Warning: stale usage data (${selectedTier2.ageSeconds}s old).`;
+    if (tier2.length === 0) {
+      return { ok: false, message: tier1Selection.message, exitCode: 1 };
     }
   }
 
-  return { ok: true, label: selection.selected.label, warning };
+  const tier2Selection = selectAutoPickAccount(mapCandidates(tier2));
+  if (!tier2Selection.ok) {
+    return { ok: false, message: tier2Selection.message, exitCode: 1 };
+  }
+
+  const selectedTier2 = tier2.find((candidate) => candidate.label === tier2Selection.selected.label);
+  const warning = selectedTier2
+    ? `Warning: stale usage data (${selectedTier2.ageSeconds}s old).`
+    : undefined;
+
+  return { ok: true, label: tier2Selection.selected.label, warning };
 }

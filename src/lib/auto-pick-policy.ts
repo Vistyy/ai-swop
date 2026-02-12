@@ -21,7 +21,8 @@ export type AutoPickFailure = {
 
 export type AutoPickResult = AutoPickSuccess | AutoPickFailure;
 
-const MIN_REMAINING_QUOTA = 0.05;
+const MIN_REMAINING_PERCENT = 5;
+const BALANCING_USAGE_GAP_PERCENT = 30;
 
 export function selectAutoPickAccount(candidates: AutoPickCandidate[]): AutoPickResult {
   const viable = candidates.filter(
@@ -32,20 +33,7 @@ export function selectAutoPickAccount(candidates: AutoPickCandidate[]): AutoPick
   );
 
   if (viable.length === 0) {
-    let earliestResetAt: string | undefined;
-    let earliestResetMs = Number.POSITIVE_INFINITY;
-
-    for (const candidate of candidates) {
-      if (!candidate.usage.rate_limit) {
-        continue;
-      }
-      const resetAt = candidate.usage.rate_limit.secondary_window.reset_at;
-      const parsed = Date.parse(resetAt);
-      if (!Number.isNaN(parsed) && parsed < earliestResetMs) {
-        earliestResetMs = parsed;
-        earliestResetAt = resetAt;
-      }
-    }
+    const earliestResetAt = findEarliestResetAt(candidates);
 
     if (earliestResetAt) {
       return {
@@ -63,18 +51,50 @@ export function selectAutoPickAccount(candidates: AutoPickCandidate[]): AutoPick
     };
   }
 
-  const aboveThreshold = viable.filter((candidate) => {
-    const usedPercent = candidate.usage.rate_limit!.secondary_window.used_percent;
-    const remaining = 1 - usedPercent;
-    return remaining >= MIN_REMAINING_QUOTA;
+  const fractionScale = usesFractionScale(viable);
+  const viableWithUsage = viable.map((candidate) => ({
+    candidate,
+    usedPercent: normalizeUsedPercent(candidate.usage.rate_limit!.secondary_window.used_percent, fractionScale),
+  }));
+
+  const aboveThreshold = viableWithUsage.filter((entry) => {
+    const remainingPercent = 100 - entry.usedPercent;
+    return remainingPercent >= MIN_REMAINING_PERCENT;
   });
 
-  const rankingPool = aboveThreshold.length > 0 ? aboveThreshold : viable;
+  if (aboveThreshold.length === 0) {
+    const earliestResetAt = findEarliestResetAt(viable);
+    if (earliestResetAt) {
+      return {
+        ok: false,
+        kind: "all-blocked",
+        earliest_reset_at: earliestResetAt,
+        message: `all accounts are below ${MIN_REMAINING_PERCENT}% remaining quota; earliest reset at ${earliestResetAt}.`,
+      };
+    }
+
+    return {
+      ok: false,
+      kind: "all-blocked",
+      message: `all accounts are below ${MIN_REMAINING_PERCENT}% remaining quota.`,
+    };
+  }
+
+  const rankingPool = aboveThreshold;
+  const usageValues = rankingPool.map((entry) => entry.usedPercent);
+  const highestUsage = Math.max(...usageValues);
+  const lowestUsage = Math.min(...usageValues);
+  const preferHigherUsage = highestUsage - lowestUsage > BALANCING_USAGE_GAP_PERCENT;
 
   const sorted = [...rankingPool].sort((left, right) => {
     // Both are guaranteed to have rate_limit not null due to filter above
-    const leftUsage = left.usage.rate_limit!;
-    const rightUsage = right.usage.rate_limit!;
+    const leftUsage = left.candidate.usage.rate_limit!;
+    const rightUsage = right.candidate.usage.rate_limit!;
+
+    const usageDelta = left.usedPercent - right.usedPercent;
+    if (preferHigherUsage && usageDelta !== 0) {
+      return -usageDelta;
+    }
 
     const leftResetMs = parseResetAtMs(leftUsage.secondary_window.reset_at);
     const rightResetMs = parseResetAtMs(rightUsage.secondary_window.reset_at);
@@ -88,15 +108,12 @@ export function selectAutoPickAccount(candidates: AutoPickCandidate[]): AutoPick
       return 1;
     }
 
-    const usageDelta =
-      leftUsage.secondary_window.used_percent -
-      rightUsage.secondary_window.used_percent;
     if (usageDelta !== 0) {
       return usageDelta;
     }
 
-    const leftKey = normalizeLabelKey(left.label);
-    const rightKey = normalizeLabelKey(right.label);
+    const leftKey = normalizeLabelKey(left.candidate.label);
+    const rightKey = normalizeLabelKey(right.candidate.label);
     if (leftKey < rightKey) {
       return -1;
     }
@@ -104,17 +121,17 @@ export function selectAutoPickAccount(candidates: AutoPickCandidate[]): AutoPick
       return 1;
     }
 
-    if (left.label < right.label) {
+    if (left.candidate.label < right.candidate.label) {
       return -1;
     }
-    if (left.label > right.label) {
+    if (left.candidate.label > right.candidate.label) {
       return 1;
     }
 
     return 0;
   });
 
-  const selected = sorted[0];
+  const selected = sorted[0].candidate;
 
   return {
     ok: true,
@@ -126,4 +143,36 @@ export function selectAutoPickAccount(candidates: AutoPickCandidate[]): AutoPick
 function parseResetAtMs(resetAt: string): number | null {
   const parsed = Date.parse(resetAt);
   return Number.isNaN(parsed) ? null : parsed;
+}
+
+function findEarliestResetAt(candidates: AutoPickCandidate[]): string | undefined {
+  let earliestResetAt: string | undefined;
+  let earliestResetMs = Number.POSITIVE_INFINITY;
+
+  for (const candidate of candidates) {
+    if (!candidate.usage.rate_limit) {
+      continue;
+    }
+    const resetAt = candidate.usage.rate_limit.secondary_window.reset_at;
+    const parsed = Date.parse(resetAt);
+    if (!Number.isNaN(parsed) && parsed < earliestResetMs) {
+      earliestResetMs = parsed;
+      earliestResetAt = resetAt;
+    }
+  }
+
+  return earliestResetAt;
+}
+
+function usesFractionScale(candidates: AutoPickCandidate[]): boolean {
+  const values = candidates.map((candidate) => candidate.usage.rate_limit!.secondary_window.used_percent);
+  if (values.some((value) => value > 1)) {
+    return false;
+  }
+
+  return values.some((value) => value > 0 && value < 1 && !Number.isInteger(value));
+}
+
+function normalizeUsedPercent(rawUsedPercent: number, fractionScale: boolean): number {
+  return fractionScale ? rawUsedPercent * 100 : rawUsedPercent;
 }
