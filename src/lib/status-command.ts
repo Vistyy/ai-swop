@@ -83,6 +83,9 @@ function renderAccountCard(
   if (result.freshness.stale) {
     stdout.log(`  \x1b[33mWarning: data is ${result.freshness.age_seconds}s old\x1b[0m`);
   }
+  if (result.warning) {
+    stdout.log(`  \x1b[33mWarning: ${result.warning.message}\x1b[0m`);
+  }
   stdout.log("");
 }
 

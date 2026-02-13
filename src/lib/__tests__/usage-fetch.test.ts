@@ -146,4 +146,18 @@ describe("usage-fetch", () => {
       expect(result.kind).toBe("timeout");
     }
   });
+
+  it("uses a 5 second default timeout when timeoutMs is not provided", async () => {
+    let observedTimeoutMs: number | undefined;
+
+    const result = await fetchUsageSnapshot("token", {
+      request: async ({ timeoutMs }) => {
+        observedTimeoutMs = timeoutMs;
+        return { status: 200, body: okBody };
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(observedTimeoutMs).toBe(5000);
+  });
 });

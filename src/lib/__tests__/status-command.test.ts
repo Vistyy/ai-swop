@@ -184,4 +184,27 @@ describe("status-command", () => {
     expect(output).not.toContain("Secondary (7d)");
     expect(output).not.toContain("Primary (5h)");
   });
+
+  it("prints usage warning messages when stale fallback is used", async () => {
+    const listSandboxes = vi.fn().mockReturnValue([{ label: "work" }]);
+    const log = vi.fn();
+
+    const staleWithWarning: UsageClientResult = {
+      ok: true,
+      usage: baseUsage.usage,
+      freshness: { fetched_at: "2024-01-01T11:50:00Z", stale: true, age_seconds: 600 },
+      warning: { kind: "timeout", message: "Usage request timed out" },
+    };
+
+    await runSwopStatus([], {}, {
+      listSandboxes,
+      getUsageForAccount: vi.fn().mockResolvedValue(staleWithWarning),
+      stdout: { log },
+      now: () => mockNow,
+    });
+
+    const output = log.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(output).toContain("Warning: data is 600s old");
+    expect(output).toContain("Usage request timed out");
+  });
 });

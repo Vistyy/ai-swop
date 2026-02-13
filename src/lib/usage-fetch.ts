@@ -36,7 +36,7 @@ export async function fetchUsageSnapshot(
     timeoutMs?: number;
   },
 ): Promise<UsageFetchResult> {
-  const timeoutMs = options?.timeoutMs ?? 2000;
+  const timeoutMs = options?.timeoutMs ?? 5000;
   const request = options?.request ?? defaultUsageRequest;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
