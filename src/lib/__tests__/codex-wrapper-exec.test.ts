@@ -66,7 +66,7 @@ const writeMeta = (root: string, label: string): void => {
 describe("runSwopCodexCommand", () => {
   it("uses explicit --account, touches last_used_at before exec, and prints selection", async () => {
     const root = createTempRoot();
-    const env = { SWOP_ROOT: root };
+    const env = { SWOP_ROOT: root, SWOP_ISOLATION_MODE: "strict" };
     writeMeta(root, "Work");
 
     const runCodex = vi.fn().mockReturnValue({ code: 0, signal: null });
@@ -110,7 +110,7 @@ describe("runSwopCodexCommand", () => {
   });
 
   it("defaults to auto-pick and selects from fresh Tier 1 candidates", async () => {
-    const env = {};
+    const env = { SWOP_ISOLATION_MODE: "strict" };
     const runCodex = vi.fn().mockReturnValue({ code: 0, signal: null });
     const listSandboxes = vi.fn().mockReturnValue([
       {
@@ -168,7 +168,7 @@ describe("runSwopCodexCommand", () => {
   });
 
   it("warns when Tier 2 stale accounts are used", async () => {
-    const env = {};
+    const env = { SWOP_ISOLATION_MODE: "strict" };
     const stderr = { error: vi.fn() };
 
     const result = await runSwopCodexCommand(["--"], env, {
@@ -198,7 +198,7 @@ describe("runSwopCodexCommand", () => {
   });
 
   it("falls back to Tier 2 when Tier 1 cannot produce a selectable account", async () => {
-    const env = {};
+    const env = { SWOP_ISOLATION_MODE: "strict" };
     const runCodex = vi.fn().mockReturnValue({ code: 0, signal: null });
     const stdout = { log: vi.fn() };
     const stderr = { error: vi.fn() };
@@ -257,7 +257,7 @@ describe("runSwopCodexCommand", () => {
   });
 
   it("fails when no eligible accounts exist", async () => {
-    const env = {};
+    const env = { SWOP_ISOLATION_MODE: "strict" };
 
     const result = await runSwopCodexCommand(["--"], env, {
       runCodex: vi.fn(),
@@ -292,7 +292,7 @@ describe("runSwopCodexCommand", () => {
   });
 
   it("fails when all accounts are blocked", async () => {
-    const env = {};
+    const env = { SWOP_ISOLATION_MODE: "strict" };
 
     const result = await runSwopCodexCommand(["--"], env, {
       runCodex: vi.fn(),
@@ -333,7 +333,7 @@ describe("runSwopCodexCommand", () => {
   });
 
   it("fails auto-pick when all accounts are below the 5% remaining threshold", async () => {
-    const env = {};
+    const env = { SWOP_ISOLATION_MODE: "strict" };
     const runCodex = vi.fn();
 
     const result = await runSwopCodexCommand(["--"], env, {
@@ -387,7 +387,7 @@ describe("runSwopCodexCommand", () => {
   });
 
   it("passes through args after --", async () => {
-    const env = {};
+    const env = { SWOP_ISOLATION_MODE: "strict" };
     const runCodex = vi.fn().mockReturnValue({ code: 0, signal: null });
 
     const result = await runSwopCodexCommand(["--", "--version"], env, {

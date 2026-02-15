@@ -27,6 +27,19 @@ npm link
 
 ## 📖 Usage Guide
 
+### Isolation Mode
+
+`swop` now defaults to `relaxed` isolation for a smoother shell experience:
+
+- `relaxed` (default): keeps your real `HOME` and routes `~/.codex/auth.json` to the selected account.
+- `strict` (opt-in): fully sandboxes `HOME` and XDG paths per account.
+
+Use strict mode when you need stronger process-level separation:
+
+```bash
+SWOP_ISOLATION_MODE=strict swop codex --account my-work-account -- --version
+```
+
 ### Managing Accounts
 
 ```bash
@@ -76,4 +89,3 @@ swop codex -- --version
 - **Delivery Map**: [docs-ai/docs/initiatives/delivery-map.md](docs-ai/docs/initiatives/delivery-map.md)
 - **Feature Overview**: [docs-ai/docs/initiatives/swop/features/cli-wrapper/overview.md](docs-ai/docs/initiatives/swop/features/cli-wrapper/overview.md)
 - **Implementation Plans**: Found within `work-items` directories.
-

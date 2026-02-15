@@ -1,8 +1,9 @@
+import fs from "node:fs";
 import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { lstatSafe, mkdir0700, removeTree, writeFile0600Atomic } from "../fs";
+import { lstatSafe, mkdir0700, removeTree } from "../fs";
 import { resolveSandboxPaths } from "../sandbox-paths";
 import { createSandbox } from "../sandbox-manager";
 import { addAccount, logoutAccount } from "../login-logout-orchestration";
@@ -26,11 +27,12 @@ describe("login/logout orchestration", () => {
     const tempRoot = makeTempDir();
     process.env.SWOP_ROOT = tempRoot;
     const realHome = `${tempRoot}/real-home`;
+    process.env.HOME = realHome;
     mkdir0700(`${realHome}/.codex`);
 
     const runCodex: CodexRunner = (_args, opts) => {
       const authPath = path.join(opts.env.HOME ?? "", ".codex", "auth.json");
-      writeFile0600Atomic(authPath, "token");
+      fs.writeFileSync(authPath, "token");
       return { code: 0, signal: null };
     };
 
@@ -56,6 +58,7 @@ describe("login/logout orchestration", () => {
     const tempRoot = makeTempDir();
     process.env.SWOP_ROOT = tempRoot;
     const realHome = `${tempRoot}/real-home`;
+    process.env.HOME = realHome;
     mkdir0700(`${realHome}/.codex`);
 
     const runCodex: CodexRunner = () => ({ code: 1, signal: null });
@@ -77,6 +80,7 @@ describe("login/logout orchestration", () => {
   it("fails fast without a TTY and does not create sandbox", () => {
     const tempRoot = makeTempDir();
     process.env.SWOP_ROOT = tempRoot;
+    process.env.HOME = `${tempRoot}/real-home`;
 
     const runCodex: CodexRunner = () => ({ code: 0, signal: null });
 
@@ -97,6 +101,7 @@ describe("login/logout orchestration", () => {
     const tempRoot = makeTempDir();
     process.env.SWOP_ROOT = tempRoot;
     const realHome = `${tempRoot}/real-home`;
+    process.env.HOME = realHome;
     mkdir0700(`${realHome}/.codex`);
 
     createSandbox("Work", process.env, realHome);
@@ -120,6 +125,7 @@ describe("login/logout orchestration", () => {
     const tempRoot = makeTempDir();
     process.env.SWOP_ROOT = tempRoot;
     const realHome = `${tempRoot}/real-home`;
+    process.env.HOME = realHome;
     mkdir0700(`${realHome}/.codex`);
 
     createSandbox("Work", process.env, realHome);
@@ -143,6 +149,7 @@ describe("login/logout orchestration", () => {
     const tempRoot = makeTempDir();
     process.env.SWOP_ROOT = tempRoot;
     const realHome = `${tempRoot}/real-home`;
+    process.env.HOME = realHome;
     mkdir0700(`${realHome}/.codex`);
 
     createSandbox("Work", process.env, realHome);

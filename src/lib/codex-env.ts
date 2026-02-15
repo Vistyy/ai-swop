@@ -1,10 +1,18 @@
 import path from "node:path";
+import { resolveIsolationMode } from "./isolation-mode";
 
 export function buildSandboxCodexEnv(
   baseEnv: NodeJS.ProcessEnv,
   sandboxHome: string,
   sandboxRoot: string,
 ): NodeJS.ProcessEnv {
+  const mode = resolveIsolationMode(baseEnv);
+  if (mode === "relaxed") {
+    return {
+      ...baseEnv,
+    };
+  }
+
   return {
     ...baseEnv,
     HOME: sandboxHome,

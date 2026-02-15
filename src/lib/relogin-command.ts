@@ -1,8 +1,9 @@
 import type { CodexRunner } from "./codex-runner";
-import { ensureAuthInteractive } from "./auth-flow";
 import { resolveSandboxPaths } from "./sandbox-paths";
 import { buildSandboxCodexEnv } from "./codex-env";
 import { lstatSafe } from "./fs";
+import { routeCodexAuthToAccount } from "./auth-routing";
+import { resolveIsolationMode } from "./isolation-mode";
 
 export type ReloginResult = { ok: true } | { ok: false; message: string; exitCode: number };
 
@@ -28,6 +29,12 @@ export async function runSwopRelogin(
   }
 
   const sandboxEnv = buildSandboxCodexEnv(env, paths.sandboxHome, paths.sandboxRoot);
+  if (resolveIsolationMode(env) === "relaxed") {
+    const routeResult = routeCodexAuthToAccount(accountLabel, env);
+    if (!routeResult.ok) {
+      return { ok: false, message: routeResult.message, exitCode: 1 };
+    }
+  }
 
   // 2. Force interactive login flow (skipping "Session expired" message if we can, 
   // but ensureAuthInteractive has that prompt built-in.

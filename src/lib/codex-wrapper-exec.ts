@@ -1,11 +1,13 @@
 import path from "node:path";
 
 import { ensureAuthInteractive } from "./auth-flow";
+import { routeCodexAuthToAccount } from "./auth-routing";
 
 import { selectAutoPickAccount } from "./auto-pick-policy";
 import type { CodexRunner } from "./codex-runner";
 import { buildSandboxCodexEnv } from "./codex-env";
 import { lstatSafe } from "./fs";
+import { resolveIsolationMode } from "./isolation-mode";
 import { resolveSandboxPaths } from "./sandbox-paths";
 import type { UsageClientResult } from "./usage-types";
 
@@ -58,6 +60,12 @@ export async function runSwopCodexCommand(
   stdout.log(`Selected account: ${label}`);
 
   const paths = resolveSandboxPaths(label, env);
+  if (resolveIsolationMode(env) === "relaxed") {
+    const routeResult = routeCodexAuthToAccount(label, env);
+    if (!routeResult.ok) {
+      return { ok: false, message: routeResult.message, exitCode: 1 };
+    }
+  }
   const sandboxEnv = buildSandboxCodexEnv(env, paths.sandboxHome, paths.sandboxRoot);
 
   deps.touchLastUsedAt(label, env, now);
