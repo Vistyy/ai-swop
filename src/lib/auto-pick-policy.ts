@@ -22,7 +22,6 @@ export type AutoPickFailure = {
 export type AutoPickResult = AutoPickSuccess | AutoPickFailure;
 
 const MIN_REMAINING_PERCENT = 5;
-const BALANCING_USAGE_GAP_PERCENT = 30;
 
 export function selectAutoPickAccount(candidates: AutoPickCandidate[]): AutoPickResult {
   const viable = candidates.filter(
@@ -80,20 +79,14 @@ export function selectAutoPickAccount(candidates: AutoPickCandidate[]): AutoPick
     };
   }
 
-  const rankingPool = aboveThreshold;
-  const usageValues = rankingPool.map((entry) => entry.usedPercent);
-  const highestUsage = Math.max(...usageValues);
-  const lowestUsage = Math.min(...usageValues);
-  const preferHigherUsage = highestUsage - lowestUsage > BALANCING_USAGE_GAP_PERCENT;
-
-  const sorted = [...rankingPool].sort((left, right) => {
+  const sorted = [...aboveThreshold].sort((left, right) => {
     // Both are guaranteed to have rate_limit not null due to filter above
     const leftUsage = left.candidate.usage.rate_limit!;
     const rightUsage = right.candidate.usage.rate_limit!;
 
     const usageDelta = left.usedPercent - right.usedPercent;
-    if (preferHigherUsage && usageDelta !== 0) {
-      return -usageDelta;
+    if (usageDelta !== 0) {
+      return usageDelta;
     }
 
     const leftResetMs = parseResetAtMs(leftUsage.secondary_window.reset_at);
@@ -106,10 +99,6 @@ export function selectAutoPickAccount(candidates: AutoPickCandidate[]): AutoPick
     }
     if (leftResetMs === null && rightResetMs !== null) {
       return 1;
-    }
-
-    if (usageDelta !== 0) {
-      return usageDelta;
     }
 
     const leftKey = normalizeLabelKey(left.candidate.label);

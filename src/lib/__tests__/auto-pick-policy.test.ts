@@ -27,7 +27,7 @@ const withUsage = (
 });
 
 describe("selectAutoPickAccount", () => {
-  it("prioritizes earliest reset_at over lower used_percent", () => {
+  it("prioritizes lower used_percent over earlier reset_at", () => {
     const candidates = [
       withUsage("earlier-reset", {
         rate_limit: {
@@ -49,7 +49,7 @@ describe("selectAutoPickAccount", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.selected.label).toBe("earlier-reset");
+      expect(result.selected.label).toBe("later-reset");
     }
   });
 
@@ -336,11 +336,11 @@ describe("selectAutoPickAccount", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.selected.label).toBe("exact-threshold-earlier");
+      expect(result.selected.label).toBe("healthy-later");
     }
   });
 
-  it("prefers higher used_percent when eligible gap is over 30 points", () => {
+  it("picks lower used_percent even when the eligible gap is over 30 points", () => {
     const candidates = [
       withUsage("high-usage", {
         rate_limit: {
@@ -362,11 +362,11 @@ describe("selectAutoPickAccount", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.selected.label).toBe("high-usage");
+      expect(result.selected.label).toBe("low-usage-earlier-reset");
     }
   });
 
-  it("does not apply balancing override when usage gap is 30 points or less", () => {
+  it("picks lower used_percent when usage gap is 30 points or less", () => {
     const candidates = [
       withUsage("higher-usage-later-reset", {
         rate_limit: {
