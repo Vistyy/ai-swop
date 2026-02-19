@@ -13,6 +13,10 @@ const baseUsage = (overrides?: Partial<UsageSnapshotV1>): UsageSnapshotV1 => ({
   rate_limit: {
     allowed: true,
     limit_reached: false,
+    primary_window: {
+      used_percent: 0,
+      reset_at: "2026-01-01T00:00:00Z",
+    },
     secondary_window: {
       used_percent: 0,
       reset_at: "2026-01-01T00:00:00Z",
@@ -134,6 +138,7 @@ describe("runSwopCodexCommand", () => {
               rate_limit: {
                 allowed: true,
                 limit_reached: false,
+                primary_window: { used_percent: 0.3, reset_at: "2026-01-01T00:00:00Z" },
                 secondary_window: { used_percent: 0.6, reset_at: "2026-01-01T00:00:00Z" },
               },
             })
@@ -141,6 +146,7 @@ describe("runSwopCodexCommand", () => {
               rate_limit: {
                 allowed: true,
                 limit_reached: false,
+                primary_window: { used_percent: 0.3, reset_at: "2026-01-01T00:00:00Z" },
                 secondary_window: { used_percent: 0.1, reset_at: "2026-01-01T00:00:00Z" },
               },
             }),
@@ -227,16 +233,18 @@ describe("runSwopCodexCommand", () => {
             rate_limit: {
               allowed: true,
               limit_reached: false,
+              primary_window: { used_percent: 30, reset_at: "2026-01-16T00:00:00Z" },
               secondary_window: { used_percent: 37, reset_at: "2026-01-16T00:00:00Z" },
             },
           }),
         )
-        // Tier 1 fresh but below 5% remaining
+        // Tier 1 fresh but blocked, so selection should fall back to stale Tier 2
         .mockResolvedValueOnce(
           freshUsageResult({
             rate_limit: {
-              allowed: true,
-              limit_reached: false,
+              allowed: false,
+              limit_reached: true,
+              primary_window: { used_percent: 20, reset_at: "2026-01-14T00:00:00Z" },
               secondary_window: { used_percent: 99, reset_at: "2026-01-14T00:00:00Z" },
             },
           }),
@@ -315,6 +323,7 @@ describe("runSwopCodexCommand", () => {
           rate_limit: {
             allowed: false,
             limit_reached: true,
+            primary_window: { used_percent: 1, reset_at: "2026-01-01T12:00:00Z" },
             secondary_window: { used_percent: 1, reset_at: "2026-01-01T12:00:00Z" },
           },
         }),
@@ -332,9 +341,10 @@ describe("runSwopCodexCommand", () => {
     }
   });
 
-  it("fails auto-pick when all accounts are below the 5% remaining threshold", async () => {
+  it("selects closest reset when all accounts are below the 5% remaining threshold", async () => {
     const env = { SWOP_ISOLATION_MODE: "strict" };
-    const runCodex = vi.fn();
+    const runCodex = vi.fn().mockReturnValue({ code: 0, signal: null });
+    const stdout = { log: vi.fn() };
 
     const result = await runSwopCodexCommand(["--"], env, {
       runCodex,
@@ -359,6 +369,7 @@ describe("runSwopCodexCommand", () => {
             rate_limit: {
               allowed: true,
               limit_reached: false,
+              primary_window: { used_percent: 10, reset_at: "2026-01-02T00:00:00Z" },
               secondary_window: { used_percent: 97, reset_at: "2026-01-02T00:00:00Z" },
             },
           }),
@@ -368,22 +379,23 @@ describe("runSwopCodexCommand", () => {
             rate_limit: {
               allowed: true,
               limit_reached: false,
+              primary_window: { used_percent: 10, reset_at: "2026-01-03T00:00:00Z" },
               secondary_window: { used_percent: 96, reset_at: "2026-01-03T00:00:00Z" },
             },
           }),
         ),
       touchLastUsedAt: vi.fn(),
       now: () => new Date("2026-01-02T00:00:00Z"),
-      stdout: { log: vi.fn() },
+      stdout,
       stderr: { error: vi.fn() },
     });
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.message).toContain("below");
-      expect(result.message).toContain("5%");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.exitCode).toBe(0);
     }
-    expect(runCodex).not.toHaveBeenCalled();
+    expect(stdout.log).toHaveBeenCalledWith(expect.stringContaining("Gmail1"));
+    expect(runCodex).toHaveBeenCalled();
   });
 
   it("passes through args after --", async () => {
