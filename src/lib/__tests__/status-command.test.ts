@@ -38,6 +38,26 @@ describe("status-command", () => {
     expect(log).toHaveBeenCalledWith(expect.stringContaining("Account: personal"));
   });
 
+  it("renders account email when available on usage payload", async () => {
+    const listSandboxes = vi.fn().mockReturnValue([{ label: "work" }]);
+    const usageWithEmail: UsageClientResult = JSON.parse(JSON.stringify(baseUsage));
+    if (usageWithEmail.ok) {
+      (usageWithEmail.usage as { email?: string }).email = "work@example.com";
+    }
+    const getUsageForAccount = vi.fn().mockResolvedValue(usageWithEmail);
+    const log = vi.fn();
+
+    const result = await runSwopStatus([], {}, {
+      listSandboxes,
+      getUsageForAccount,
+      stdout: { log },
+      now: () => mockNow,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(log).toHaveBeenCalledWith("  Email: work@example.com");
+  });
+
   it("handles empty state", async () => {
     const listSandboxes = vi.fn().mockReturnValue([]);
     const getUsageForAccount = vi.fn();

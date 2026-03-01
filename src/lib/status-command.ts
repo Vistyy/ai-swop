@@ -6,7 +6,7 @@ export async function runSwopStatus(
   args: string[],
   env: NodeJS.ProcessEnv,
   deps: {
-    listSandboxes: (env: NodeJS.ProcessEnv) => { label: string }[];
+    listSandboxes: (env: NodeJS.ProcessEnv) => { label: string; email?: string }[];
     getUsageForAccount: (
       label: string,
       env: NodeJS.ProcessEnv,
@@ -30,12 +30,13 @@ export async function runSwopStatus(
   const results = await Promise.all(
     sandboxes.map(async (s) => ({
       label: s.label,
+      email: s.email,
       usage: await deps.getUsageForAccount(s.label, env, { forceRefresh }),
     })),
   );
 
-  for (const { label, usage } of results) {
-    renderAccountCard(label, usage, stdout, now);
+  for (const { label, email, usage } of results) {
+    renderAccountCard(label, email, usage, stdout, now);
   }
 
   return { ok: true };
@@ -43,6 +44,7 @@ export async function runSwopStatus(
 
 function renderAccountCard(
   label: string,
+  email: string | undefined,
   result: UsageClientResult,
   stdout: Pick<Console, "log">,
   now: Date,
@@ -53,12 +55,19 @@ function renderAccountCard(
   stdout.log(`${bold}Account: ${label}${reset}`);
 
   if (!result.ok) {
+    if (typeof email === "string" && email.trim().length > 0) {
+      stdout.log(`  Email: ${email}`);
+    }
     stdout.log(`  Status: \x1b[31mError: ${result.message}\x1b[0m`);
     stdout.log("");
     return;
   }
 
   const { plan_type, rate_limit } = result.usage;
+  const displayEmail = result.usage.email ?? email;
+  if (typeof displayEmail === "string" && displayEmail.trim().length > 0) {
+    stdout.log(`  Email: ${displayEmail}`);
+  }
   stdout.log(`  Plan: ${plan_type}`);
 
   if (!rate_limit) {

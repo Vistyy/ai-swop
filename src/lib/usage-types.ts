@@ -1,6 +1,7 @@
 export const USAGE_TYPES_VERSION = 1;
 
 export type UsageSnapshotV1 = {
+  email?: string;
   plan_type: string;
   rate_limit: {
     allowed: boolean;

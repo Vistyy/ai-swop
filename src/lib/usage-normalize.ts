@@ -51,6 +51,7 @@ export function normalizeUsageSnapshotV1(value: unknown): UsageSnapshotV1 | null
     return null;
   }
 
+  const email = typeof value.email === "string" ? value.email : undefined;
   const planType = value.plan_type;
   if (typeof planType !== "string") {
     return null;
@@ -58,7 +59,7 @@ export function normalizeUsageSnapshotV1(value: unknown): UsageSnapshotV1 | null
 
   const rateLimit = value.rate_limit;
   if (rateLimit === null) {
-    return { plan_type: planType, rate_limit: null };
+    return { email, plan_type: planType, rate_limit: null };
   }
 
   if (!isRecord(rateLimit)) {
@@ -85,6 +86,7 @@ export function normalizeUsageSnapshotV1(value: unknown): UsageSnapshotV1 | null
   const normalizedSecondary = secondary ?? primary!;
 
   return {
+    email,
     plan_type: planType,
     rate_limit: {
       allowed,

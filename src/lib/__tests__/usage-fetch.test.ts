@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { fetchUsageSnapshot } from "../usage-fetch";
 
 const okBody = JSON.stringify({
+  email: "work@example.com",
   plan_type: "pro",
   rate_limit: {
     allowed: true,
@@ -26,6 +27,7 @@ describe("usage-fetch", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok && result.usage.rate_limit) {
+      expect(result.usage.email).toBe("work@example.com");
       expect(result.usage.plan_type).toBe("pro");
       expect(result.usage.rate_limit.secondary_window.used_percent).toBe(12);
     }
