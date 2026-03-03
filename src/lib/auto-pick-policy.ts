@@ -4,6 +4,7 @@ import type { UsageSnapshotV1 } from "./usage-types";
 export type AutoPickCandidate = {
   label: string;
   usage: UsageSnapshotV1;
+  last_used_at?: string;
 };
 
 export type AutoPickSuccess = {
@@ -21,17 +22,15 @@ export type AutoPickFailure = {
 
 export type AutoPickResult = AutoPickSuccess | AutoPickFailure;
 
-const MIN_REMAINING_PERCENT = 5;
-const MIN_PRIMARY_REMAINING_PERCENT = 20;
-const OVERRIDE_GAP_PERCENT = 40;
-const OVERRIDE_RESET_LEAD_MS = 2 * 24 * 60 * 60 * 1000;
+const MIN_PRIMARY_REMAINING_PERCENT = 50;
+const MAX_SECONDARY_BALANCE_GAP_PERCENT = 20;
 
 export function selectAutoPickAccount(candidates: AutoPickCandidate[]): AutoPickResult {
   const viable = candidates.filter(
     (candidate) =>
       candidate.usage.rate_limit !== null &&
       candidate.usage.rate_limit.allowed &&
-      !candidate.usage.rate_limit.limit_reached
+      !candidate.usage.rate_limit.limit_reached,
   );
 
   if (viable.length === 0) {
@@ -53,64 +52,38 @@ export function selectAutoPickAccount(candidates: AutoPickCandidate[]): AutoPick
     };
   }
 
-  const secondaryFractionScale = usesFractionScale(viable, (candidate) => {
-    return candidate.usage.rate_limit?.secondary_window.used_percent;
-  });
-  const primaryFractionScale = usesFractionScale(viable, (candidate) => {
-    return candidate.usage.rate_limit?.primary_window?.used_percent;
-  });
+  const secondaryFractionScale = usesFractionScale(viable, (candidate) => candidate.usage.rate_limit?.secondary_window.used_percent);
+  const primaryFractionScale = usesFractionScale(viable, (candidate) => candidate.usage.rate_limit?.primary_window.used_percent);
 
   const scored = viable.map((candidate) => {
     const rateLimit = candidate.usage.rate_limit!;
     const secondaryUsedPercent = normalizeUsedPercent(rateLimit.secondary_window.used_percent, secondaryFractionScale);
-    const primaryUsedPercent = normalizeUsedPercent(rateLimit.primary_window?.used_percent ?? 0, primaryFractionScale);
+    const primaryUsedPercent = normalizeUsedPercent(rateLimit.primary_window.used_percent, primaryFractionScale);
 
     return {
       candidate,
       secondaryRemainingPercent: 100 - secondaryUsedPercent,
       primaryRemainingPercent: 100 - primaryUsedPercent,
-      secondaryResetMs: parseResetAtMs(rateLimit.secondary_window.reset_at),
+      lastUsedAtMs: parseTimestampMs(candidate.last_used_at),
     };
   });
 
-  const primaryEligible = scored.filter((entry) => entry.primaryRemainingPercent >= MIN_PRIMARY_REMAINING_PERCENT);
-  const afterPrimaryRule = primaryEligible.length > 0 ? primaryEligible : scored;
+  const primaryHealthy = scored.filter((entry) => entry.primaryRemainingPercent >= MIN_PRIMARY_REMAINING_PERCENT);
+  const primaryPool = primaryHealthy.length > 0 ? primaryHealthy : scored;
 
-  const secondaryEligible = afterPrimaryRule.filter((entry) => entry.secondaryRemainingPercent >= MIN_REMAINING_PERCENT);
-  const selectionPool = secondaryEligible.length > 0 ? secondaryEligible : afterPrimaryRule;
+  const highestSecondaryRemaining = Math.max(...primaryPool.map((entry) => entry.secondaryRemainingPercent));
+  const balancedPool = primaryPool.filter(
+    (entry) => highestSecondaryRemaining - entry.secondaryRemainingPercent <= MAX_SECONDARY_BALANCE_GAP_PERCENT,
+  );
 
-  const byClosestReset = [...selectionPool].sort(compareByClosestResetThenLabel);
-  const closestReset = byClosestReset[0];
-
-  const highestUsageLeft = [...selectionPool].sort((left, right) => {
-    const remainingDelta = right.secondaryRemainingPercent - left.secondaryRemainingPercent;
-    if (remainingDelta !== 0) {
-      return remainingDelta;
-    }
-
-    return compareByClosestResetThenLabel(left, right);
-  })[0];
-
-  const usageLeftGap = highestUsageLeft.secondaryRemainingPercent - closestReset.secondaryRemainingPercent;
-  const nowMs = Date.now();
-  const closestResetIsMoreThanTwoDaysAway =
-    closestReset.secondaryResetMs !== null && closestReset.secondaryResetMs - nowMs > OVERRIDE_RESET_LEAD_MS;
-
-  const selected =
-    usageLeftGap > OVERRIDE_GAP_PERCENT && closestResetIsMoreThanTwoDaysAway
-      ? highestUsageLeft.candidate
-      : closestReset.candidate;
+  const selectionPool = balancedPool.length > 0 ? balancedPool : primaryPool;
+  const selected = [...selectionPool].sort(compareBalancedCandidates)[0];
 
   return {
     ok: true,
-    selected: { label: selected.label },
-    message: `Selected account ${selected.label}.`,
+    selected: { label: selected.candidate.label },
+    message: `Selected account ${selected.candidate.label}.`,
   };
-}
-
-function parseResetAtMs(resetAt: string): number | null {
-  const parsed = Date.parse(resetAt);
-  return Number.isNaN(parsed) ? null : parsed;
 }
 
 function findEarliestResetAt(candidates: AutoPickCandidate[]): string | undefined {
@@ -134,7 +107,7 @@ function findEarliestResetAt(candidates: AutoPickCandidate[]): string | undefine
 
 function usesFractionScale(
   candidates: AutoPickCandidate[],
-  getValue: (candidate: AutoPickCandidate) => number | undefined
+  getValue: (candidate: AutoPickCandidate) => number | undefined,
 ): boolean {
   const values = candidates
     .map((candidate) => getValue(candidate))
@@ -159,18 +132,21 @@ type ScoredCandidate = {
   candidate: AutoPickCandidate;
   secondaryRemainingPercent: number;
   primaryRemainingPercent: number;
-  secondaryResetMs: number | null;
+  lastUsedAtMs: number | null;
 };
 
-function compareByClosestResetThenLabel(left: ScoredCandidate, right: ScoredCandidate): number {
-  if (left.secondaryResetMs !== null && right.secondaryResetMs !== null && left.secondaryResetMs !== right.secondaryResetMs) {
-    return left.secondaryResetMs - right.secondaryResetMs;
+function compareBalancedCandidates(left: ScoredCandidate, right: ScoredCandidate): number {
+  const recentComparison = compareLastUsed(left.lastUsedAtMs, right.lastUsedAtMs);
+  if (recentComparison !== 0) {
+    return recentComparison;
   }
-  if (left.secondaryResetMs !== null && right.secondaryResetMs === null) {
-    return -1;
+
+  if (right.secondaryRemainingPercent !== left.secondaryRemainingPercent) {
+    return right.secondaryRemainingPercent - left.secondaryRemainingPercent;
   }
-  if (left.secondaryResetMs === null && right.secondaryResetMs !== null) {
-    return 1;
+
+  if (right.primaryRemainingPercent !== left.primaryRemainingPercent) {
+    return right.primaryRemainingPercent - left.primaryRemainingPercent;
   }
 
   const leftKey = normalizeLabelKey(left.candidate.label);
@@ -190,4 +166,27 @@ function compareByClosestResetThenLabel(left: ScoredCandidate, right: ScoredCand
   }
 
   return 0;
+}
+
+function compareLastUsed(left: number | null, right: number | null): number {
+  if (left === null && right !== null) {
+    return -1;
+  }
+  if (left !== null && right === null) {
+    return 1;
+  }
+  if (left !== null && right !== null && left !== right) {
+    return left - right;
+  }
+
+  return 0;
+}
+
+function parseTimestampMs(timestamp: string | undefined): number | null {
+  if (!timestamp) {
+    return null;
+  }
+
+  const parsed = Date.parse(timestamp);
+  return Number.isNaN(parsed) ? null : parsed;
 }

@@ -7,6 +7,12 @@ import {
 import { addAccount, logoutAccount } from "./lib/login-logout-orchestration";
 import { runCodex } from "./lib/codex-runner";
 import { getUsageForAccount } from "./lib/usage-client";
+import {
+  ensureUsageRefreshDaemon,
+  getUsageRefreshDaemonStatus,
+  runUsageRefreshDaemon,
+  stopUsageRefreshDaemon,
+} from "./lib/usage-refresh-daemon";
 import { runSwopCodexCommand } from "./lib/codex-wrapper-exec";
 import { runSwopRelogin } from "./lib/relogin-command";
 import { runSwopStatus } from "./lib/status-command";
@@ -16,6 +22,14 @@ import type { Argv, ArgumentsCamelCase } from "yargs";
 
 export async function main(argv: string[]): Promise<void> {
   const rawArgs = hideBin(argv);
+  if (rawArgs[0] === "__refresh-daemon") {
+    await runUsageRefreshDaemon(process.env, {
+      listSandboxes,
+      getUsageForAccount,
+    });
+    return;
+  }
+
   const cli = yargs(rawArgs)
     .scriptName("swop")
     .parserConfiguration({ "populate--": true })
@@ -119,6 +133,7 @@ export async function main(argv: string[]): Promise<void> {
         describe: "Bypass the 15-minute cache and fetch live usage",
       }),
     async (args: ArgumentsCamelCase<StatusArgs>) => {
+      ensureUsageRefreshDaemon(process.env);
       const statusArgs: string[] = [];
       if (args.refresh) {
         statusArgs.push("--refresh");
@@ -160,6 +175,38 @@ export async function main(argv: string[]): Promise<void> {
   );
 
   cli.command(
+    "refresh-daemon <action>",
+    "Inspect or stop the background usage refresh daemon",
+    (y: Argv) =>
+      y.positional("action", {
+        choices: ["status", "stop"] as const,
+        demandOption: true,
+      }),
+    async (args: ArgumentsCamelCase<{ action: "status" | "stop" }>) => {
+      if (args.action === "status") {
+        const status = getUsageRefreshDaemonStatus(process.env);
+        if (status.running) {
+          console.log(
+            `Usage refresh daemon running (pid ${status.pid}) since ${status.started_at}. pid file: ${status.pid_path}`,
+          );
+        } else if (status.pid) {
+          console.log(
+            `Usage refresh daemon not running; stale pid file for pid ${status.pid}. pid file: ${status.pid_path}`,
+          );
+        } else {
+          console.log(`Usage refresh daemon is not running. pid file: ${status.pid_path}`);
+        }
+        process.exitCode = 0;
+        return;
+      }
+
+      const stopResult = stopUsageRefreshDaemon(process.env);
+      console.log(stopResult.message);
+      process.exitCode = 0;
+    },
+  );
+
+  cli.command(
     "codex [args..]",
     "Run codex in a selected sandbox. Use -- to pass codex args.",
     (y: Argv) =>
@@ -167,16 +214,24 @@ export async function main(argv: string[]): Promise<void> {
         .parserConfiguration({ "unknown-options-as-args": true })
         .option("account", {
           type: "string",
+          alias: "a",
           describe: "Explicitly select an account label (skips auto-pick)",
         })
         .option("auto", {
           type: "boolean",
           default: false,
           describe: "Use auto-pick account selection (default when --account is not set)",
+        })
+        .option("interactive", {
+          type: "boolean",
+          alias: "i",
+          default: false,
+          describe: "Open an interactive account picker instead of auto-selecting",
         }),
     async () => {
       const codexIndex = rawArgs.indexOf("codex");
       const passArgs = codexIndex === -1 ? [] : rawArgs.slice(codexIndex + 1);
+      ensureUsageRefreshDaemon(process.env);
       const result = await runSwopCodexCommand(passArgs, process.env, {
         runCodex,
         listSandboxes,

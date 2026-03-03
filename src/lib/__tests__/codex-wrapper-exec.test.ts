@@ -113,6 +113,96 @@ describe("runSwopCodexCommand", () => {
     );
   });
 
+  it("accepts -a as an alias for --account", async () => {
+    const root = createTempRoot();
+    const env = { SWOP_ROOT: root, SWOP_ISOLATION_MODE: "strict" };
+    writeMeta(root, "Work");
+
+    const runCodex = vi.fn().mockReturnValue({ code: 0, signal: null });
+
+    const result = await runSwopCodexCommand(
+      ["-a", "Work", "--", "--version"],
+      env,
+      {
+        runCodex,
+        listSandboxes: vi.fn(),
+        getUsageForAccount: vi.fn(),
+        touchLastUsedAt: vi.fn(),
+        now: () => new Date("2026-01-02T00:00:00Z"),
+        stdout: { log: vi.fn() },
+        stderr: { error: vi.fn() },
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(runCodex).toHaveBeenCalledWith(
+      ["--version"],
+      expect.objectContaining({ stdio: "inherit" }),
+    );
+  });
+
+  it("uses interactive selection when -i is provided", async () => {
+    const env = { SWOP_ISOLATION_MODE: "strict" };
+    const runCodex = vi.fn().mockReturnValue({ code: 0, signal: null });
+    const selectInteractiveAccount = vi.fn().mockResolvedValue({
+      ok: true as const,
+      label: "Personal",
+    });
+
+    const result = await runSwopCodexCommand(["-i", "--", "--version"], env, {
+      runCodex,
+      listSandboxes: vi.fn().mockReturnValue([
+        {
+          schema_version: 1,
+          label: "Work",
+          label_key: "work",
+          created_at: "2026-01-01T00:00:00Z",
+        },
+        {
+          schema_version: 1,
+          label: "Personal",
+          label_key: "personal",
+          created_at: "2026-01-01T00:00:00Z",
+        },
+      ]),
+      getUsageForAccount: vi
+        .fn()
+        .mockResolvedValueOnce(freshUsageResult())
+        .mockResolvedValueOnce(
+          freshUsageResult({
+            email: "personal@example.com",
+            rate_limit: {
+              allowed: true,
+              limit_reached: false,
+              primary_window: { used_percent: 10, reset_at: "2026-01-01T00:00:00Z" },
+              secondary_window: { used_percent: 35, reset_at: "2026-01-05T00:00:00Z" },
+            },
+          }),
+        ),
+      touchLastUsedAt: vi.fn(),
+      now: () => new Date("2026-01-02T00:00:00Z"),
+      stdout: { log: vi.fn() },
+      stderr: { error: vi.fn() },
+      stdin: { isTTY: true } as NodeJS.ReadStream,
+      selectInteractiveAccount,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(selectInteractiveAccount).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "Work" }),
+        expect.objectContaining({ label: "Personal" }),
+      ]),
+      expect.objectContaining({
+        stdin: expect.anything(),
+      }),
+    );
+    expect(runCodex).toHaveBeenCalledWith(
+      ["--version"],
+      expect.objectContaining({ stdio: "inherit" }),
+    );
+  });
+
   it("defaults to auto-pick and selects from fresh Tier 1 candidates", async () => {
     const env = { SWOP_ISOLATION_MODE: "strict" };
     const runCodex = vi.fn().mockReturnValue({ code: 0, signal: null });
@@ -341,7 +431,7 @@ describe("runSwopCodexCommand", () => {
     }
   });
 
-  it("selects closest reset when all accounts are below the 5% remaining threshold", async () => {
+  it("prefers the highest 7d remaining account when all options are nearly drained", async () => {
     const env = { SWOP_ISOLATION_MODE: "strict" };
     const runCodex = vi.fn().mockReturnValue({ code: 0, signal: null });
     const stdout = { log: vi.fn() };
@@ -394,7 +484,7 @@ describe("runSwopCodexCommand", () => {
     if (result.ok) {
       expect(result.exitCode).toBe(0);
     }
-    expect(stdout.log).toHaveBeenCalledWith(expect.stringContaining("Gmail1"));
+    expect(stdout.log).toHaveBeenCalledWith(expect.stringContaining("Gmail2"));
     expect(runCodex).toHaveBeenCalled();
   });
 

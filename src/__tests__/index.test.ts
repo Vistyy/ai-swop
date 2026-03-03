@@ -24,8 +24,16 @@ vi.mock("../lib/codex-wrapper-exec", () => ({
   runSwopCodexCommand: vi.fn(),
 }));
 
+vi.mock("../lib/usage-refresh-daemon", () => ({
+  ensureUsageRefreshDaemon: vi.fn(),
+  runUsageRefreshDaemon: vi.fn(),
+  getUsageRefreshDaemonStatus: vi.fn(),
+  stopUsageRefreshDaemon: vi.fn(),
+}));
+
 import { addAccount, logoutAccount } from "../lib/login-logout-orchestration";
 import { getUsageForAccount } from "../lib/usage-client";
+import { getUsageRefreshDaemonStatus, stopUsageRefreshDaemon } from "../lib/usage-refresh-daemon";
 
 describe("cli entrypoint", () => {
   let logSpy: ReturnType<typeof vi.spyOn>;
@@ -92,7 +100,10 @@ describe("cli entrypoint", () => {
     ].join("");
 
     expect(output).toContain("--account");
+    expect(output).toContain("-a");
     expect(output).toContain("--auto");
+    expect(output).toContain("--interactive");
+    expect(output).toContain("-i");
     expect(process.exitCode).toBe(0);
   });
 
@@ -199,5 +210,37 @@ describe("cli entrypoint", () => {
       process.env,
       expect.any(Object),
     );
+  });
+
+  it("prints refresh-daemon status", async () => {
+    vi.mocked(getUsageRefreshDaemonStatus).mockReturnValue({
+      running: true,
+      pid: 321,
+      started_at: "2026-03-03T10:00:00.000Z",
+      pid_path: "/tmp/swop/usage-refresh-daemon.json",
+    });
+
+    const { main } = await import("../index");
+
+    await main(["node", "swop", "refresh-daemon", "status"]);
+
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("running"));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("321"));
+    expect(process.exitCode).toBe(0);
+  });
+
+  it("stops refresh-daemon", async () => {
+    vi.mocked(stopUsageRefreshDaemon).mockReturnValue({
+      stopped: true,
+      pid: 321,
+      message: "Stopped usage refresh daemon (pid 321).",
+    });
+
+    const { main } = await import("../index");
+
+    await main(["node", "swop", "refresh-daemon", "stop"]);
+
+    expect(logSpy).toHaveBeenCalledWith("Stopped usage refresh daemon (pid 321).");
+    expect(process.exitCode).toBe(0);
   });
 });
